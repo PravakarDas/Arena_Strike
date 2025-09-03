@@ -10,10 +10,26 @@ camera_angle = 0.0
 audience_data = []
 num_audience = 150
 cheer_time = 0.0
-camera_distance = 35.0  # Changed: Auto zoom to show arena fully (was 60.0)
+camera_distance = 35.0  # Auto zoom to show arena fully
 zoom_speed = 2.0
-camera_height = 24.0  # New: Controllable camera height
-camera_move_speed = 3.0  # New: Speed for camera movement
+camera_height = 24.0  # Controllable camera height
+camera_move_speed = 3.0  # Speed for camera movement
+
+# Cannon variables
+cannon_z = 0.0  # Position along length side of arena
+cannon_angle = 45.0  # Vertical angle (0-90 degrees)
+show_aiming_line = False
+aiming_point = [0.0, 0.0, 0.0]
+CANNON_MIN_Z = -12.0  # Arena boundary limits along length
+CANNON_MAX_Z = 12.0
+CANNON_MIN_ANGLE = 0.0
+CANNON_MAX_ANGLE = 90.0
+
+# Bomb shooting variables
+bombs = []  # List to store active bombs
+bomb_speed = 0.8
+gravity = -0.02
+max_bombs = 10
 
 def init():
     glClearColor(0.15, 0.2, 0.25, 1.0)  # Natural sky blue-gray
@@ -115,11 +131,7 @@ def draw_arena_floor():
     glScalef(40.0, 0.6, 25.0)  # Football field dimensions (longer than wide)
     glutSolidCube(1.0)
     glPopMatrix()
-        
-    # Track lane dividers (white lines on track)
-    glColor3f(1.0, 1.0, 1.0)
-    glLineWidth(2.0)
-    
+
 def draw_gallery_structure():
     """Draw the gallery seating structure around football field - 3x bigger"""
     glColor3f(0.6, 0.55, 0.5)  # Natural stone color
@@ -293,32 +305,6 @@ def draw_roof_structure():
         glutSolidCube(1.0)
         glPopMatrix()
 
-def display():
-    global cheer_time, camera_distance, camera_height  # Added camera_height
-    
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity()
-    
-    # Camera position with arrow key control
-    cam_x = camera_distance * math.sin(math.radians(camera_angle))
-    cam_z = camera_distance * math.cos(math.radians(camera_angle))
-    
-    gluLookAt(cam_x, camera_height, cam_z,  # Eye position (now uses controllable camera_height)
-              0, 6, 0,                      # Look at center of arena (adjusted for bigger scale)
-              0, 1, 0)                      # Up vector
-    
-    # Draw all components
-    draw_arena_floor()
-    draw_gallery_structure()
-    draw_audience()
-    draw_arena_lights()
-    draw_roof_structure()
-    
-    # Add some atmospheric particles/effects
-    draw_atmosphere_effects()
-    
-    glutSwapBuffers()
-
 def draw_atmosphere_effects():
     """Add some floating particles for atmosphere - 3x bigger"""
     glColor4f(0.9, 0.9, 0.7, 0.3)  # Semi-transparent particles
@@ -336,13 +322,386 @@ def draw_atmosphere_effects():
     
     glEnable(GL_LIGHTING)
 
+# CANNON FUNCTIONS
+def draw_cannon_base():
+    """Draw the cannon base/chassis"""
+    glColor3f(0.2, 0.2, 0.2)  # Dark gray metal
+    
+    # Main base platform
+    glPushMatrix()
+    glTranslatef(0, -0.8, 0)
+    glScalef(1.5, 0.3, 1.0)
+    glutSolidCube(1.0)
+    glPopMatrix()
+    
+    # Wheels
+    glColor3f(0.1, 0.1, 0.1)  # Black wheels
+    for side in [-1, 1]:
+        glPushMatrix()
+        glTranslatef(0.8 * side, -0.8, 0.6)
+        glRotatef(90, 0, 1, 0)
+        draw_cylinder(0.4, 0.2)
+        
+        # Wheel spokes
+        glColor3f(0.3, 0.3, 0.3)
+        for i in range(6):
+            glPushMatrix()
+            glRotatef(i * 60, 0, 0, 1)
+            glTranslatef(0, 0.2, 0.1)
+            glScalef(0.05, 0.3, 0.05)
+            glutSolidCube(1.0)
+            glPopMatrix()
+        
+        glColor3f(0.1, 0.1, 0.1)
+        glPopMatrix()
+
+def draw_cannon_barrel():
+    """Draw the tilting cannon barrel"""
+    glPushMatrix()
+    glRotatef(cannon_angle, 1, 0, 0)  # Tilt based on angle
+    
+    # Barrel
+    glColor3f(0.15, 0.15, 0.2)  # Dark blue-gray metal
+    glPushMatrix()
+    glRotatef(-90, 1, 0, 0)
+    draw_cylinder(0.15, 2.5)
+    
+    # Barrel end cap
+    glTranslatef(0, 0, 2.5)
+    glColor3f(0.1, 0.1, 0.1)
+    draw_cylinder(0.17, 0.1)
+    glPopMatrix()
+    
+    # Cannon pivot/mount
+    glColor3f(0.3, 0.3, 0.3)
+    glPushMatrix()
+    glTranslatef(0, 0, -0.3)
+    draw_sphere(0.25)
+    glPopMatrix()
+    
+    glPopMatrix()
+
+def draw_complete_cannon():
+    """Draw the complete cannon at current position on length side"""
+    glPushMatrix()
+    # Position cannon at length side of the arena (X = -20.0 for left side)
+    glTranslatef(-20.0, -1.0, cannon_z)  # Move cannon up/down along length side
+    glRotatef(90, 0, 1, 0)  # Rotate cannon to face into the arena
+    
+    draw_cannon_base()
+    
+    # Barrel mount
+    glPushMatrix()
+    glTranslatef(0, -0.3, 0)
+    draw_cannon_barrel()
+    glPopMatrix()
+    
+    glPopMatrix()
+
+def calculate_aiming_point():
+    """Calculate where the aiming line should point based on cannon angle and position"""
+    global aiming_point
+    
+    # Calculate barrel tip position (cannon is at length side)
+    barrel_length = 2.5
+    cannon_world_x = -20.0  # Left side of arena
+    cannon_world_y = -1.3  # Cannon base height
+    cannon_world_z = cannon_z  # Along length side
+    
+    # Account for cannon rotation (90 degrees to face into arena)
+    barrel_tip_x = cannon_world_x + barrel_length * math.cos(math.radians(cannon_angle))
+    barrel_tip_y = cannon_world_y + barrel_length * math.sin(math.radians(cannon_angle))
+    barrel_tip_z = cannon_world_z
+    
+    # Calculate aiming direction (into arena from left side)
+    aiming_distance = 30.0
+    aiming_direction_x = math.cos(math.radians(cannon_angle))  # Forward into arena
+    aiming_direction_y = math.sin(math.radians(cannon_angle))
+    aiming_direction_z = 0  # No side movement
+    
+    aiming_point[0] = barrel_tip_x + aiming_direction_x * aiming_distance
+    aiming_point[1] = barrel_tip_y + aiming_direction_y * aiming_distance
+    aiming_point[2] = barrel_tip_z + aiming_direction_z * aiming_distance
+
+def draw_aiming_system():
+    """Draw the aiming line with dotted pattern"""
+    if not show_aiming_line:
+        return
+    
+    glDisable(GL_LIGHTING)
+    
+    # Calculate barrel tip position
+    barrel_length = 2.5
+    cannon_world_x = -20.0
+    cannon_world_y = -1.3
+    cannon_world_z = cannon_z
+    
+    barrel_tip_x = cannon_world_x + barrel_length * math.cos(math.radians(cannon_angle))
+    barrel_tip_y = cannon_world_y + barrel_length * math.sin(math.radians(cannon_angle))
+    barrel_tip_z = cannon_world_z
+    
+    # Draw dotted aiming line
+    glColor3f(1.0, 0.0, 0.0)  # Red aiming line
+    glLineWidth(3.0)
+    
+    # Create dotted line by drawing segments
+    num_segments = 50
+    for i in range(0, num_segments, 2):  # Skip every other segment for dots
+        t1 = i / float(num_segments)
+        t2 = min((i + 1) / float(num_segments), 1.0)
+        
+        x1 = barrel_tip_x + (aiming_point[0] - barrel_tip_x) * t1
+        y1 = barrel_tip_y + (aiming_point[1] - barrel_tip_y) * t1
+        z1 = barrel_tip_z + (aiming_point[2] - barrel_tip_z) * t1
+        
+        x2 = barrel_tip_x + (aiming_point[0] - barrel_tip_x) * t2
+        y2 = barrel_tip_y + (aiming_point[1] - barrel_tip_y) * t2
+        z2 = barrel_tip_z + (aiming_point[2] - barrel_tip_z) * t2
+        
+        glBegin(GL_LINES)
+        glVertex3f(x1, y1, z1)
+        glVertex3f(x2, y2, z2)
+        glEnd()
+    
+    # Draw aiming point crosshair
+    glPushMatrix()
+    glTranslatef(aiming_point[0], aiming_point[1], aiming_point[2])
+    
+    # Pulsing crosshair
+    pulse = 1.0 + 0.5 * math.sin(glutGet(GLUT_ELAPSED_TIME) * 0.005)
+    size = 0.5 * pulse
+    
+    glColor3f(1.0, 1.0, 0.0)  # Yellow crosshair
+    glLineWidth(4.0)
+    glBegin(GL_LINES)
+    # Horizontal line
+    glVertex3f(-size, 0, 0)
+    glVertex3f(size, 0, 0)
+    # Vertical line
+    glVertex3f(0, -size, 0)
+    glVertex3f(0, size, 0)
+    # Depth line
+    glVertex3f(0, 0, -size)
+    glVertex3f(0, 0, size)
+    glEnd()
+    
+    # Center dot
+    glColor3f(1.0, 0.0, 0.0)
+    glPointSize(10.0)
+    glBegin(GL_POINTS)
+    glVertex3f(0, 0, 0)
+    glEnd()
+    
+    glPopMatrix()
+    
+    glEnable(GL_LIGHTING)
+
+def move_cannon_up():
+    """Move cannon up along length side with boundary checking"""
+    global cannon_z
+    new_z = cannon_z + 1.0
+    if new_z <= CANNON_MAX_Z:
+        cannon_z = new_z
+        if show_aiming_line:
+            calculate_aiming_point()
+        print(f"Cannon moved up to Z: {cannon_z:.1f}")
+
+def move_cannon_down():
+    """Move cannon down along length side with boundary checking"""
+    global cannon_z
+    new_z = cannon_z - 1.0
+    if new_z >= CANNON_MIN_Z:
+        cannon_z = new_z
+        if show_aiming_line:
+            calculate_aiming_point()
+        print(f"Cannon moved down to Z: {cannon_z:.1f}")
+
+def tilt_cannon_up():
+    """Tilt cannon barrel up with angle limits"""
+    global cannon_angle
+    new_angle = cannon_angle + 5.0
+    if new_angle <= CANNON_MAX_ANGLE:
+        cannon_angle = new_angle
+        if show_aiming_line:
+            calculate_aiming_point()
+        print(f"Cannon tilted up to angle: {cannon_angle:.1f}°")
+
+def tilt_cannon_down():
+    """Tilt cannon barrel down with angle limits"""
+    global cannon_angle
+    new_angle = cannon_angle - 5.0
+    if new_angle >= CANNON_MIN_ANGLE:
+        cannon_angle = new_angle
+        if show_aiming_line:
+            calculate_aiming_point()
+        print(f"Cannon tilted down to angle: {cannon_angle:.1f}°")
+
+def toggle_aiming():
+    """Toggle aiming line display and calculate aiming point"""
+    global show_aiming_line
+    show_aiming_line = not show_aiming_line
+    if show_aiming_line:
+        calculate_aiming_point()
+        print(f"AIMING ON: Cannon at Z:{cannon_z:.1f}, Angle:{cannon_angle:.1f}°")
+    else:
+        print("AIMING OFF")
+
+# BOMB FUNCTIONS
+def create_bomb():
+    """Create a new bomb and add it to the bombs list"""
+    global bombs
+    
+    if len(bombs) >= max_bombs:
+        print("Maximum bombs reached! Wait for some to explode.")
+        return
+    
+    # Calculate initial bomb position (barrel tip)
+    barrel_length = 2.5
+    cannon_world_x = -20.0
+    cannon_world_y = -1.3
+    cannon_world_z = cannon_z
+    
+    initial_x = cannon_world_x + barrel_length * math.cos(math.radians(cannon_angle))
+    initial_y = cannon_world_y + barrel_length * math.sin(math.radians(cannon_angle))
+    initial_z = cannon_world_z
+    
+    # Calculate initial velocity based on cannon angle
+    velocity_x = bomb_speed * math.cos(math.radians(cannon_angle))
+    velocity_y = bomb_speed * math.sin(math.radians(cannon_angle))
+    velocity_z = 0.0
+    
+    # Create bomb object
+    bomb = {
+        'x': initial_x,
+        'y': initial_y,
+        'z': initial_z,
+        'vel_x': velocity_x,
+        'vel_y': velocity_y,
+        'vel_z': velocity_z,
+        'life_time': 0,
+        'max_life': 300,  # Bomb disappears after 5 seconds at 60fps
+        'exploded': False
+    }
+    
+    bombs.append(bomb)
+    print(f"BOMB FIRED! Bombs active: {len(bombs)}")
+
+def update_bombs():
+    """Update all bomb positions and handle physics"""
+    global bombs
+    
+    bombs_to_remove = []
+    
+    for i, bomb in enumerate(bombs):
+        if bomb['exploded']:
+            continue
+        
+        # Update position
+        bomb['x'] += bomb['vel_x']
+        bomb['y'] += bomb['vel_y']
+        bomb['z'] += bomb['vel_z']
+        
+        # Apply gravity
+        bomb['vel_y'] += gravity
+        
+        # Check collision with ground
+        if bomb['y'] <= -1.0:
+            bomb['exploded'] = True
+            print(f"BOMB EXPLODED at ({bomb['x']:.1f}, {bomb['y']:.1f}, {bomb['z']:.1f})")
+        
+        # Check arena boundaries
+        if (bomb['x'] > 25.0 or bomb['x'] < -25.0 or 
+            bomb['z'] > 15.0 or bomb['z'] < -15.0):
+            bomb['exploded'] = True
+            print("Bomb flew out of arena!")
+        
+        # Update lifetime
+        bomb['life_time'] += 1
+        if bomb['life_time'] >= bomb['max_life']:
+            bombs_to_remove.append(i)
+    
+    # Remove expired bombs
+    for i in reversed(bombs_to_remove):
+        bombs.pop(i)
+
+def draw_bomb(bomb):
+    """Draw a single bomb"""
+    glPushMatrix()
+    glTranslatef(bomb['x'], bomb['y'], bomb['z'])
+    
+    if bomb['exploded']:
+        # Draw explosion effect
+        glColor3f(1.0, 0.5, 0.0)  # Orange explosion
+        explosion_size = min(2.0, (bomb['life_time'] - 240) * 0.1)  # Grow over time
+        draw_sphere(explosion_size)
+        
+        # Add some particles
+        glColor3f(1.0, 1.0, 0.0)  # Yellow particles
+        for j in range(8):
+            angle = j * 45
+            offset_x = explosion_size * 0.5 * math.cos(math.radians(angle))
+            offset_z = explosion_size * 0.5 * math.sin(math.radians(angle))
+            glPushMatrix()
+            glTranslatef(offset_x, 0, offset_z)
+            draw_sphere(0.1)
+            glPopMatrix()
+    else:
+        # Draw flying bomb
+        glColor3f(0.2, 0.2, 0.2)  # Dark gray bomb
+        draw_sphere(0.15)
+        
+        # Add a fuse spark
+        glColor3f(1.0, 0.8, 0.0)  # Yellow spark
+        spark_offset = 0.2 + 0.1 * math.sin(bomb['life_time'] * 0.5)
+        glPushMatrix()
+        glTranslatef(0, spark_offset, 0)
+        draw_sphere(0.05)
+        glPopMatrix()
+    
+    glPopMatrix()
+
+def draw_all_bombs():
+    """Draw all active bombs"""
+    glDisable(GL_LIGHTING)
+    for bomb in bombs:
+        draw_bomb(bomb)
+    glEnable(GL_LIGHTING)
+
+def display():
+    global cheer_time, camera_distance, camera_height
+    
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glLoadIdentity()
+    
+    # Camera position with arrow key control
+    cam_x = camera_distance * math.sin(math.radians(camera_angle))
+    cam_z = camera_distance * math.cos(math.radians(camera_angle))
+    
+    gluLookAt(cam_x, camera_height, cam_z,  # Eye position
+              0, 6, 0,                      # Look at center of arena
+              0, 1, 0)                      # Up vector
+    
+    # Draw all arena components
+    draw_arena_floor()
+    draw_gallery_structure()
+    draw_audience()
+    draw_arena_lights()
+    draw_roof_structure()
+    draw_atmosphere_effects()
+    
+    # Draw cannon at length side
+    draw_complete_cannon()
+    draw_aiming_system()
+    
+    # Draw bombs
+    draw_all_bombs()
+    
+    glutSwapBuffers()
+
 def idle():
-    global cheer_time  # Removed camera_angle update - no more spinning
-    # camera_angle += 0.2  # REMOVED: Stop the spinning
+    global cheer_time
     cheer_time += 0.05  # Keep audience movement
-    
-    # Removed camera angle reset logic since we're not spinning
-    
+    update_bombs()  # Update bomb physics
     glutPostRedisplay()
 
 def keyboard(key, x, y):
@@ -356,10 +715,23 @@ def keyboard(key, x, y):
         camera_distance = max(20.0, camera_distance - zoom_speed)
     elif key == b'-':  # '-' key for zoom out
         camera_distance = min(150.0, camera_distance + zoom_speed)
-    elif key == b'w':  # Move camera up
+    # CANNON CONTROLS
+    elif key == b'w':  # Move camera up (changed from w to avoid conflict)
         camera_height += camera_move_speed
-    elif key == b's':  # Move camera down
+    elif key == b's':  # Move camera down (changed from s to avoid conflict)
         camera_height = max(5.0, camera_height - camera_move_speed)
+    elif key == b'j' or key == b'J':  # Move cannon down along length side
+        move_cannon_down()
+    elif key == b'k' or key == b'K':  # Move cannon up along length side
+        move_cannon_up()
+    elif key == b'o' or key == b'O':  # Tilt cannon up
+        tilt_cannon_up()
+    elif key == b'i' or key == b'I':  # Tilt cannon down
+        tilt_cannon_down()
+    elif key == b'c' or key == b'C':  # Toggle aiming
+        toggle_aiming()
+    elif key == b'f' or key == b'F':  # FIRE bomb
+        create_bomb()
 
 def special_keys(key, x, y):
     """Handle special keys for camera movement and zoom control"""
@@ -391,26 +763,53 @@ def main():
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1000, 800)
     glutInitWindowPosition(100, 100)
-    glutCreateWindow(b"Modern 3D Arena with Gallery Audience")
+    glutCreateWindow(b"Arena Strike - 3D Arena with Cannon")
     
     init()
     
     glutDisplayFunc(display)
     glutIdleFunc(idle)
     glutKeyboardFunc(keyboard)
-    glutSpecialFunc(special_keys)  # Add special keys handler
+    glutSpecialFunc(special_keys)
     glutReshapeFunc(reshape)
     
-    print("Controls:")
-    print("- Camera is now static and focused on football field")
-    print("- Press SPACE for manual camera rotation")
-    print("- Use ARROW KEYS for camera control:")
-    print("  ← LEFT: Rotate camera left")
-    print("  → RIGHT: Rotate camera right") 
-    print("  ↑ UP: Zoom in")
-    print("  ↓ DOWN: Zoom out")
-    print("- Use W/S keys to move camera up/down")
-    print("- Use +/- keys for additional zoom")
+    print("=== ARENA STRIKE - 3D Arena with Cannon & Bombs ===")
+    print()
+    print("🎮 CAMERA CONTROLS:")
+    print("- ARROW KEYS: Rotate camera / Zoom in-out")
+    print("- W/S keys: Move camera up/down")
+    print("- +/- keys: Additional zoom")
+    print("- SPACE: Manual camera rotation")
+    print()
+    print("🎯 CANNON CONTROLS:")
+    print("- J key: Move cannon DOWN along length side")
+    print("- K key: Move cannon UP along length side") 
+    print("- O key: Tilt cannon barrel UP")
+    print("- I key: Tilt cannon barrel DOWN")
+    print("- C key: Toggle AIM (dotted line sight)")
+    print("- F key: FIRE BOMB! 💣")
+    print()
+    print("📋 FEATURES:")
+    print("✓ Cannon positioned at length side of arena")
+    print("✓ Smooth up/down movement along arena length")
+    print("✓ Up/down barrel tilting (0° to 90°)")
+    print("✓ Dotted aiming line with crosshair target")
+    print("✓ Bomb shooting with realistic physics")
+    print("✓ Gravity and collision detection")
+    print("✓ Explosion effects when bombs hit ground")
+    print("✓ Animated audience in 3D gallery")
+    print("✓ Dynamic lighting and atmosphere")
+    print("✓ Football field arena layout")
+    print()
+    print("🎲 Instructions:")
+    print("1. Use J/K to position the cannon along the length")
+    print("2. Use O/I to aim the cannon up/down")
+    print("3. Press C to see your aiming line")
+    print("4. Press F to FIRE bombs!")
+    print("5. The red dotted line shows where you're aiming")
+    print("6. Yellow crosshair marks the target point")
+    print("7. Watch bombs fly with realistic physics!")
+    print()
     print("- Press 'q' or ESC to quit")
     
     glutMainLoop()
