@@ -1,5 +1,3 @@
-# main_game.py
-# Main entry point for Arena Strike game
 import sys
 from OpenGL.GL import *
 from OpenGL.GLU import *
@@ -14,7 +12,6 @@ from asset.lvl3_archer import *
 from asset.lvl4_boss import *
 
 def main():
-    # --- GAME STATE ---
     state = {
         'audience_data': generate_audience(),
         'cheer_time': 0.0,
@@ -63,12 +60,12 @@ def main():
         draw_aiming_system(state['show_aiming_line'], state['cannon_z'], state['cannon_angle'], state['aiming_point'])
         draw_all_bombs(state['bombs'])
         draw_bullets(state['bullets'])
-        # Draw all enemies by type
+
         for enemy in state['enemies']:
             if not enemy['alive']:
                 continue
             glPushMatrix()
-            glTranslatef(enemy['pos'][0], 0, enemy['pos'][2])
+            glTranslatef(enemy['pos'][0], enemy['pos'][1], enemy['pos'][2])
             if enemy['type'] == 'stickyman':
                 draw_stickman(0)
             elif enemy['type'] == 'bug':
@@ -142,21 +139,27 @@ def main():
                     state['enemies'] = []
         elif state['level'] == 2:
             if not state['level_spawn_time']:
-                state['enemies'] = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'bug', 'collided': False}]
+                state['enemies'] = [{'pos': [20.0, 8.0, 0.0], 'alive': True, 'type': 'bug', 'collided': False}]
                 state['level_spawn_time'] = now
                 state['level_second_spawned'] = False
                 state['level_complete'] = False
             elif not state['level_second_spawned'] and now - state['level_spawn_time'] > 3.0:
-                state['enemies'].append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'bug', 'collided': False})
+                state['enemies'].append({'pos': [20.0, 8.0, 6.0], 'alive': True, 'type': 'bug', 'collided': False})
                 state['level_second_spawned'] = True
             for enemy in state['enemies']:
                 if not enemy['alive']:
                     continue
-                dx = -20.0 - enemy['pos'][0]
-                dz = state['cannon_z'] - enemy['pos'][2]
-                dist = (dx*dx + dz*dz) ** 0.5
-                if dist > 1.0:
+                # 3D movement towards cannon position [-20.0, -1.0, cannon_z]
+                target_x = -20.0
+                target_y = -1.0
+                target_z = state['cannon_z']
+                dx = target_x - enemy['pos'][0]
+                dy = target_y - enemy['pos'][1]
+                dz = target_z - enemy['pos'][2]
+                dist = (dx*dx + dy*dy + dz*dz) ** 0.5
+                if dist > 1.5:
                     enemy['pos'][0] += 0.13 * dx / dist
+                    enemy['pos'][1] += 0.13 * dy / dist
                     enemy['pos'][2] += 0.13 * dz / dist
                     enemy['collided'] = False
                 else:
@@ -275,7 +278,7 @@ def main():
                     continue
                 dx = bullet['x'] - enemy['pos'][0]
                 dz = bullet['z'] - enemy['pos'][2]
-                dy = bullet['y'] - 0.0
+                dy = bullet['y'] - enemy['pos'][1]
                 if dx*dx + dy*dy + dz*dz < 1.2:
                     enemy['alive'] = False
                     bullet['alive'] = False
@@ -299,41 +302,33 @@ def main():
         if key == b'q' or key == b'\x1b':
             sys.exit(0)
         elif key == b' ':
-            state['camera_angle'] += 45
+            create_bullet(state['bullets'], state['cannon_z'], state['cannon_angle'], state['bullet_speed'])
         elif key == b'=':
             state['camera_distance'] = max(20.0, state['camera_distance'] - 2.0)
         elif key == b'-':
             state['camera_distance'] = min(150.0, state['camera_distance'] + 2.0)
-        elif key == b'w':
-            state['camera_height'] += state['camera_move_speed']
-        elif key == b's':
-            state['camera_height'] = max(5.0, state['camera_height'] - state['camera_move_speed'])
-        elif key == b'j' or key == b'J':
-            state['cannon_z'] = move_cannon_down(state['cannon_z'], state['CANNON_MIN_Z'])
-        elif key == b'k' or key == b'K':
-            state['cannon_z'] = move_cannon_up(state['cannon_z'], state['CANNON_MAX_Z'])
-        elif key == b'o' or key == b'O':
-            state['cannon_angle'] = tilt_cannon_up(state['cannon_angle'], state['CANNON_MIN_ANGLE'])
-        elif key == b'i' or key == b'I':
+        elif key == b'w': #done
             state['cannon_angle'] = tilt_cannon_down(state['cannon_angle'], state['CANNON_MAX_ANGLE'])
-        elif key == b'a' or key == b'A':
-            state['camera_angle'] -= state['camera_move_speed']
-        elif key == b'd' or key == b'D':
-            state['camera_angle'] += state['camera_move_speed']
-        elif key == b'f' or key == b'F':
-            create_bomb(state['bombs'], state['cannon_z'], state['cannon_angle'], state['bomb_speed'], state['max_bombs'], state['gravity'])
-        elif key == b'y' or key == b'Y':
-            create_bullet(state['bullets'], state['cannon_z'], state['cannon_angle'], state['bullet_speed'])
+        elif key == b's':
+            state['cannon_angle'] = tilt_cannon_up(state['cannon_angle'], state['CANNON_MIN_ANGLE'])
+        elif key == b'a' or key == b'A': #done
+            state['cannon_z'] = move_cannon_down(state['cannon_z'], state['CANNON_MIN_Z']) 
+        elif key == b'd' or key == b'D': #done
+            state['cannon_z'] = move_cannon_up(state['cannon_z'], state['CANNON_MAX_Z'])
 
     def special_keys(key, x, y):
         if key == GLUT_KEY_LEFT:
             state['camera_angle'] -= state['camera_move_speed']
+            # state['camera_angle'] -= state['camera_move_speed']
         elif key == GLUT_KEY_RIGHT:
             state['camera_angle'] += state['camera_move_speed']
+            # state['camera_angle'] += state['camera_move_speed']
         elif key == GLUT_KEY_UP:
             state['camera_distance'] = max(20.0, state['camera_distance'] - 2.0)
+            state['camera_height'] += state['camera_move_speed']
         elif key == GLUT_KEY_DOWN:
             state['camera_distance'] = min(150.0, state['camera_distance'] + 2.0)
+            state['camera_height'] = max(5.0, state['camera_height'] - state['camera_move_speed'])
         glutPostRedisplay()
 
     def reshape(width, height):
