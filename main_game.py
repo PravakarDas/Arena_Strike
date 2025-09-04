@@ -176,43 +176,46 @@ def main():
                     state['enemies'] = []
         elif state['level'] == 3:
             if not state['level_spawn_time']:
-                state['enemies'] = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': [], 'collided': False}]
+                state['enemies'] = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': [], 'shots_fired': 0, 'collided': False}]
                 state['level_spawn_time'] = now
                 state['level_second_spawned'] = False
                 state['level_complete'] = False
             elif not state['level_second_spawned'] and now - state['level_spawn_time'] > 3.0:
-                state['enemies'].append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': [], 'collided': False})
+                state['enemies'].append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': [], 'shots_fired': 0, 'collided': False})
                 state['level_second_spawned'] = True
             for enemy in state['enemies']:
                 if not enemy['alive']:
                     continue
                 enemy['walk_timer'] += 0.016
                 if enemy['walking']:
-                    if enemy['walk_timer'] < 2.0:
-                        dx = -20.0 - enemy['pos'][0]
-                        dz = state['cannon_z'] - enemy['pos'][2]
-                        dist = (dx*dx + dz*dz) ** 0.5
-                        if dist > 1.0:
-                            enemy['pos'][0] += 0.06 * dx / dist
-                            enemy['pos'][2] += 0.06 * dz / dist
-                            enemy['collided'] = False
-                        else:
-                            if not enemy.get('collided', False):
-                                state['player_life'] -= 2
-                                enemy['collided'] = True
+                    dx = -20.0 - enemy['pos'][0]
+                    dz = state['cannon_z'] - enemy['pos'][2]
+                    dist = (dx*dx + dz*dz) ** 0.5
+                    if dist > 1.0:
+                        enemy['pos'][0] += 0.06 * dx / dist
+                        enemy['pos'][2] += 0.06 * dz / dist
+                        enemy['collided'] = False
+                        # Switch to shooting after walking for 5-7 seconds (balanced)
+                        if enemy['walk_timer'] > 5.0 + (enemy['pos'][0] % 2.0):
+                            enemy['walking'] = False
+                            enemy['walk_timer'] = 0.0
                     else:
-                        enemy['walking'] = False
-                        enemy['walk_timer'] = 0.0
+                        if not enemy.get('collided', False):
+                            state['player_life'] -= 2
+                            enemy['collided'] = True
                 else:
                     enemy['shoot_timer'] += 0.016
-                    if enemy['shoot_timer'] > 3.0:
+                    if enemy['shoot_timer'] > 2.0:  # Shoot every 2 seconds instead of 3
                         dx = -20.0 - enemy['pos'][0]
                         dz = state['cannon_z'] - enemy['pos'][2]
                         dist = (dx*dx + dz*dz) ** 0.5
                         arrow = {'x': enemy['pos'][0], 'y': 1.5, 'z': enemy['pos'][2], 'dx': dx/dist, 'dz': dz/dist, 'alive': True}
                         enemy['arrows'].append(arrow)
                         enemy['shoot_timer'] = 0.0
-                        enemy['walking'] = True
+                        enemy['shots_fired'] += 1
+                        if enemy['shots_fired'] >= 2:
+                            enemy['walking'] = True
+                            enemy['shots_fired'] = 0
             for enemy in state['enemies']:
                 if enemy['type'] == 'archer':
                     for arrow in enemy['arrows']:
