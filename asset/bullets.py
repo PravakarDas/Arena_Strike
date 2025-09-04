@@ -20,12 +20,14 @@ def create_bullet(bullets, cannon_z, cannon_angle, bullet_speed):
     print("Bullet fired!")
 
 def update_bullets(bullets):
+    gravity = -0.015  # Gravity acceleration
     for bullet in bullets:
         if not bullet['alive']:
             continue
         bullet['x'] += bullet['vx']
         bullet['y'] += bullet['vy']
         bullet['z'] += bullet['vz']
+        bullet['vy'] += gravity  # Apply gravity to vertical velocity
         if bullet['x'] < -25 or bullet['x'] > 25 or bullet['z'] < -15 or bullet['z'] > 15 or bullet['y'] < -2 or bullet['y'] > 30:
             bullet['alive'] = False
 

@@ -67,16 +67,54 @@ def calculate_aiming_point(cannon_z, cannon_angle, aiming_point):
     cannon_world_x = -20.0
     cannon_world_y = -1.3
     cannon_world_z = cannon_z
-    barrel_tip_x = cannon_world_x + barrel_length * math.cos(math.radians(cannon_angle))
-    barrel_tip_y = cannon_world_y + barrel_length * math.sin(math.radians(cannon_angle))
-    barrel_tip_z = cannon_world_z
-    aiming_distance = 30.0
-    aiming_direction_x = math.cos(math.radians(cannon_angle))
-    aiming_direction_y = math.sin(math.radians(cannon_angle))
-    aiming_direction_z = 0
-    aiming_point[0] = barrel_tip_x + aiming_direction_x * aiming_distance
-    aiming_point[1] = barrel_tip_y + aiming_direction_y * aiming_distance
-    aiming_point[2] = barrel_tip_z + aiming_direction_z * aiming_distance
+    tip_x = cannon_world_x + barrel_length * math.cos(math.radians(cannon_angle))
+    tip_y = cannon_world_y + barrel_length * math.sin(math.radians(cannon_angle))
+    tip_z = cannon_world_z
+
+    # Simulate projectile trajectory with gravity
+    gravity = -0.015
+    bullet_speed = 1.2
+    vx = bullet_speed * math.cos(math.radians(cannon_angle))
+    vy = bullet_speed * math.sin(math.radians(cannon_angle))
+
+    # Find the point where bullet would hit ground (y = -1.0) or max distance
+    current_x = tip_x
+    current_y = tip_y
+    current_z = tip_z
+    current_vy = vy
+
+    # Simulate trajectory until bullet hits ground or goes too far
+    max_iterations = 200
+    for i in range(max_iterations):
+        current_x += vx
+        current_y += current_vy
+        current_z += 0  # No z movement
+        current_vy += gravity
+
+        # Check if bullet would hit ground
+        if current_y <= -1.0:
+            # Interpolate to find exact ground hit point
+            overshoot = current_y - (-1.0)
+            prev_y = current_y - current_vy
+            fraction = overshoot / (prev_y - current_y)
+            hit_x = current_x - vx * fraction
+            hit_z = current_z
+            aiming_point[0] = hit_x
+            aiming_point[1] = -1.0
+            aiming_point[2] = hit_z
+            return
+
+        # Stop if bullet goes too far
+        if current_x > 25 or abs(current_z - cannon_world_z) > 20:
+            aiming_point[0] = current_x
+            aiming_point[1] = current_y
+            aiming_point[2] = current_z
+            return
+
+    # Fallback
+    aiming_point[0] = tip_x + vx * 20
+    aiming_point[1] = tip_y + vy * 20
+    aiming_point[2] = tip_z
 
 def draw_aiming_system(show_aiming_line, cannon_z, cannon_angle, aiming_point):
     if not show_aiming_line:
@@ -89,22 +127,41 @@ def draw_aiming_system(show_aiming_line, cannon_z, cannon_angle, aiming_point):
     barrel_tip_x = cannon_world_x + barrel_length * math.cos(math.radians(cannon_angle))
     barrel_tip_y = cannon_world_y + barrel_length * math.sin(math.radians(cannon_angle))
     barrel_tip_z = cannon_world_z
+
+    # Draw projectile trajectory with gravity
+    gravity = -0.015
+    bullet_speed = 1.2
+    vx = bullet_speed * math.cos(math.radians(cannon_angle))
+    vy = bullet_speed * math.sin(math.radians(cannon_angle))
+
     glColor3f(1.0, 0.0, 0.0)
     glLineWidth(3.0)
-    num_segments = 50
-    for i in range(0, num_segments, 2):
-        t1 = i / float(num_segments)
-        t2 = min((i + 1) / float(num_segments), 1.0)
-        x1 = barrel_tip_x + (aiming_point[0] - barrel_tip_x) * t1
-        y1 = barrel_tip_y + (aiming_point[1] - barrel_tip_y) * t1
-        z1 = barrel_tip_z + (aiming_point[2] - barrel_tip_z) * t1
-        x2 = barrel_tip_x + (aiming_point[0] - barrel_tip_x) * t2
-        y2 = barrel_tip_y + (aiming_point[1] - barrel_tip_y) * t2
-        z2 = barrel_tip_z + (aiming_point[2] - barrel_tip_z) * t2
-        glBegin(GL_LINES)
-        glVertex3f(x1, y1, z1)
-        glVertex3f(x2, y2, z2)
-        glEnd()
+    glBegin(GL_LINE_STRIP)
+
+    current_x = barrel_tip_x
+    current_y = barrel_tip_y
+    current_z = barrel_tip_z
+    current_vy = vy
+
+    # Draw trajectory points
+    glVertex3f(current_x, current_y, current_z)
+
+    max_iterations = 50
+    for i in range(max_iterations):
+        current_x += vx * 0.5  # Smaller steps for smoother curve
+        current_y += current_vy * 0.5
+        current_z += 0
+        current_vy += gravity * 0.5
+
+        glVertex3f(current_x, current_y, current_z)
+
+        # Stop if bullet hits ground or goes too far
+        if current_y <= -1.0 or current_x > 25 or abs(current_z - cannon_world_z) > 20:
+            break
+
+    glEnd()
+
+    # Draw crosshair at aiming point
     glPushMatrix()
     glTranslatef(aiming_point[0], aiming_point[1], aiming_point[2])
     pulse = 1.0 + 0.5 * math.sin(glutGet(GLUT_ELAPSED_TIME) * 0.005)
@@ -140,13 +197,13 @@ def move_cannon_down(cannon_z, CANNON_MIN_Z):
     return cannon_z
 
 def tilt_cannon_up(cannon_angle, CANNON_MIN_ANGLE):
-    new_angle = cannon_angle - 5.0
+    new_angle = cannon_angle - 1.0  # Reduced from 5.0 to 1.0 for finer control
     if new_angle >= CANNON_MIN_ANGLE:
         return new_angle
     return cannon_angle
 
 def tilt_cannon_down(cannon_angle, CANNON_MAX_ANGLE):
-    new_angle = cannon_angle + 5.0
+    new_angle = cannon_angle + 1.0  # Reduced from 5.0 to 1.0 for finer control
     if new_angle <= CANNON_MAX_ANGLE:
         return new_angle
     return cannon_angle
