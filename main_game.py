@@ -1,4 +1,5 @@
 import sys
+import math
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
@@ -40,7 +41,20 @@ def main():
         'level_spawn_time': None,
         'level_second_spawned': False,
         'level_complete': False,
-        'score': 0
+        'score': 0,
+        'laser_active': False,
+        'laser_start_time': 0.0,
+        'laser_cooldown_end': 0.0,
+        'laser_duration': 5.0,
+        'laser_cooldown': 30.0,
+        'cheat_active': False,
+        'cheat_start_time': 0.0,
+        'cheat_cooldown_end': 0.0,
+        'cheat_shots': 0,
+        'cheat_max_shots': 3,
+        'cheat_cooldown': 20.0,
+        'cheat_last_shot_time': 0.0,
+        'cheat_shot_delay': 1.0
     }
 
     def display():
@@ -58,6 +72,24 @@ def main():
         draw_complete_cannon(state['cannon_z'], state['cannon_angle'])
         calculate_aiming_point(state['cannon_z'], state['cannon_angle'], state['aiming_point'])
         draw_aiming_system(state['show_aiming_line'], state['cannon_z'], state['cannon_angle'], state['aiming_point'])
+        # Draw laser if active
+        if state['laser_active']:
+            angle_rad = math.radians(state['cannon_angle'])
+            tip_x = -20.0 + 2.5 * math.cos(angle_rad)
+            tip_y = -1.3 + 2.5 * math.sin(angle_rad)
+            tip_z = state['cannon_z']
+            end_x = tip_x + 50.0 * math.cos(angle_rad)
+            end_y = tip_y + 50.0 * math.sin(angle_rad)
+            end_z = tip_z
+            glDisable(GL_LIGHTING)
+            glColor3f(1.0, 0.0, 0.0)  # Red laser
+            glLineWidth(5.0)
+            glBegin(GL_LINES)
+            glVertex3f(tip_x, tip_y, tip_z)
+            glVertex3f(end_x, end_y, end_z)
+            glEnd()
+            glLineWidth(1.0)
+            glEnable(GL_LIGHTING)
         draw_all_bombs(state['bombs'])
         draw_bullets(state['bullets'])
 
@@ -94,7 +126,20 @@ def main():
         glDisable(GL_LIGHTING)
         glWindowPos2f(10, 40)
         level_name = {1: 'Stickyman', 2: 'Bug', 3: 'Archer', 4: 'Boss'}
-        s = f"Life: {state['player_life']}  |  Level {state['level']}: {level_name.get(state['level'], '')}  |  Score: {state['score']}"
+        now = glutGet(GLUT_ELAPSED_TIME) / 1000.0
+        laser_status = "Laser: Ready"
+        if state['laser_active']:
+            laser_status = "Laser: Active"
+        elif now < state['laser_cooldown_end']:
+            remaining = int(state['laser_cooldown_end'] - now)
+            laser_status = f"Laser: {remaining}s"
+        cheat_status = "Cheat: Ready"
+        if state['cheat_active']:
+            cheat_status = f"Cheat: {state['cheat_shots']}/{state['cheat_max_shots']}"
+        elif now < state['cheat_cooldown_end']:
+            remaining = int(state['cheat_cooldown_end'] - now)
+            cheat_status = f"Cheat: {remaining}s"
+        s = f"Life: {state['player_life']}  |  Level {state['level']}: {level_name.get(state['level'], '')}  |  Score: {state['score']}  |  {laser_status}  |  {cheat_status}"
         from OpenGL.GLUT import GLUT_BITMAP_HELVETICA_18
         for c in s:
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(c))
@@ -273,6 +318,69 @@ def main():
                 if not state['level_complete']:
                     state['level_complete'] = True
                     # Game win
+        # --- LASER LOGIC ---
+        if state['laser_active'] and now - state['laser_start_time'] > state['laser_duration']:
+            state['laser_active'] = False
+        if state['laser_active']:
+            # Calculate laser direction
+            angle_rad = math.radians(state['cannon_angle'])
+            tip_x = -20.0 + 2.5 * math.cos(angle_rad)
+            tip_y = -1.3 + 2.5 * math.sin(angle_rad)
+            tip_z = state['cannon_z']
+            dir_x = math.cos(angle_rad)
+            dir_y = math.sin(angle_rad)
+            dir_z = 0.0
+            # Kill enemies in laser path
+            for enemy in state['enemies']:
+                if not enemy['alive']:
+                    continue
+                ex, ey, ez = enemy['pos']
+                # Vector from tip to enemy
+                vx = ex - tip_x
+                vy = ey - tip_y
+                vz = ez - tip_z
+                # Project onto direction
+                proj = vx * dir_x + vy * dir_y + vz * dir_z
+                if proj > 0:  # In front
+                    # Perpendicular distance
+                    perp_x = vx - proj * dir_x
+                    perp_y = vy - proj * dir_y
+                    perp_z = vz - proj * dir_z
+                    dist_perp = math.sqrt(perp_x**2 + perp_y**2 + perp_z**2)
+                    if dist_perp < 1.0 and proj < 30.0:  # Within 1 unit and 30 units range
+                        enemy['alive'] = False
+                        state['score'] += 100
+        # --- CHEAT MODE LOGIC ---
+        if state['cheat_active'] and now - state['cheat_last_shot_time'] >= state['cheat_shot_delay']:
+            # Find closest enemy
+            closest = None
+            min_dist = float('inf')
+            for enemy in state['enemies']:
+                if enemy['alive']:
+                    dx = enemy['pos'][0] - (-20.0)
+                    dz = enemy['pos'][2] - state['cannon_z']
+                    dist = dx**2 + dz**2
+                    if dist < min_dist:
+                        min_dist = dist
+                        closest = enemy
+            if closest:
+                # Aim at closest
+                ex, ey, ez = closest['pos']
+                # Set cannon_z to ez
+                state['cannon_z'] = max(state['CANNON_MIN_Z'], min(state['CANNON_MAX_Z'], ez))
+                # Compute angle
+                dx = ex - (-20.0)
+                dy = ey - (-1.3)
+                angle = math.degrees(math.atan2(dy, dx))
+                state['cannon_angle'] = max(state['CANNON_MIN_ANGLE'], min(state['CANNON_MAX_ANGLE'], angle))
+                # Shoot
+                create_bullet(state['bullets'], state['cannon_z'], state['cannon_angle'], state['bullet_speed'])
+                state['cheat_last_shot_time'] = now
+                state['cheat_shots'] += 1
+                if state['cheat_shots'] >= state['cheat_max_shots']:
+                    state['cheat_active'] = False
+            else:
+                state['cheat_active'] = False
         # --- BULLET-ENEMY COLLISION ---
         for enemy in state['enemies']:
             if not enemy['alive']:
@@ -307,6 +415,20 @@ def main():
             sys.exit(0)
         elif key == b' ':
             create_bullet(state['bullets'], state['cannon_z'], state['cannon_angle'], state['bullet_speed'])
+        elif key == b'l' or key == b'L':
+            now = glutGet(GLUT_ELAPSED_TIME) / 1000.0
+            if not state['laser_active'] and now >= state['laser_cooldown_end']:
+                state['laser_active'] = True
+                state['laser_start_time'] = now
+                state['laser_cooldown_end'] = now + state['laser_duration'] + state['laser_cooldown']
+        elif key == b'c' or key == b'C':
+            now = glutGet(GLUT_ELAPSED_TIME) / 1000.0
+            if not state['cheat_active'] and now >= state['cheat_cooldown_end']:
+                state['cheat_active'] = True
+                state['cheat_start_time'] = now
+                state['cheat_cooldown_end'] = now + state['cheat_cooldown']
+                state['cheat_shots'] = 0
+                state['cheat_last_shot_time'] = now - state['cheat_shot_delay']  # shoot immediately
         elif key == b'=':
             state['camera_distance'] = max(20.0, state['camera_distance'] - 2.0)
         elif key == b'-':
@@ -361,6 +483,9 @@ def main():
     glutReshapeFunc(reshape)
     print("=== ARENA STRIKE - 3D Arena with Cannon & Bombs ===")
     print("- Press 'q' or ESC to quit")
+    print("- Press SPACE to fire bullets")
+    print("- Press L to activate laser (5s active, 30s cooldown)")
+    print("- Press C to activate cheat mode (auto-aim & shoot 3 enemies, 20s cooldown)")
     glutMainLoop()
 
 if __name__ == '__main__':
