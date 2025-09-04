@@ -1,5 +1,6 @@
 import sys
 import math
+import random
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
@@ -54,15 +55,33 @@ def main():
         'cheat_max_shots': 3,
         'cheat_cooldown': 20.0,
         'cheat_last_shot_time': 0.0,
-        'cheat_shot_delay': 1.0
+        'cheat_shot_delay': 1.0,
+        'spawned_count': 0,
+        'max_enemies': 5,
+        'spawn_delays': [],
+        'view_mode': 'third'
     }
 
     def display():
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
-        cam_x = state['camera_distance'] * math.sin(math.radians(state['camera_angle']))
-        cam_z = state['camera_distance'] * math.cos(math.radians(state['camera_angle']))
-        gluLookAt(cam_x, state['camera_height'], cam_z, 0, 6, 0, 0, 1, 0)
+        if state['view_mode'] == 'third':
+            cam_x = state['camera_distance'] * math.sin(math.radians(state['camera_angle']))
+            cam_z = state['camera_distance'] * math.cos(math.radians(state['camera_angle']))
+            gluLookAt(cam_x, state['camera_height'], cam_z, 0, 6, 0, 0, 1, 0)
+        else:  # first
+            cannon_x = -20.0
+            cannon_y = -1.3
+            cannon_z_pos = state['cannon_z']
+            angle_rad = math.radians(state['cannon_angle'])
+            look_x = cannon_x + 10 * math.cos(angle_rad)
+            look_y = cannon_y + 10 * math.sin(angle_rad)
+            look_z = cannon_z_pos
+            # Position camera slightly back and up from cannon
+            cam_x = cannon_x - 2.0
+            cam_y = cannon_y + 2.0
+            cam_z = cannon_z_pos
+            gluLookAt(cam_x, cam_y, cam_z, look_x, look_y, look_z, 0, 1, 0)
         draw_arena_floor()
         draw_gallery_structure()
         draw_audience(state['audience_data'], state['cheer_time'])
@@ -139,7 +158,7 @@ def main():
         elif now < state['cheat_cooldown_end']:
             remaining = int(state['cheat_cooldown_end'] - now)
             cheat_status = f"Cheat: {remaining}s"
-        s = f"Life: {state['player_life']}  |  Level {state['level']}: {level_name.get(state['level'], '')}  |  Score: {state['score']}  |  {laser_status}  |  {cheat_status}"
+        s = f"Life: {state['player_life']}  |  Level {state['level']}: {level_name.get(state['level'], '')}  |  Score: {state['score']}  |  {laser_status}  |  {cheat_status}  |  View: {state['view_mode'].capitalize()}"
         from OpenGL.GLUT import GLUT_BITMAP_HELVETICA_18
         for c in s:
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(c))
@@ -155,13 +174,16 @@ def main():
         # Level 1: Stickyman
         if state['level'] == 1:
             if not state['level_spawn_time']:
-                state['enemies'] = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'stickyman', 'collided': False}]
+                state['enemies'] = []
+                state['spawn_delays'] = [0, 2] + [random.uniform(2, 5) for _ in range(3)]
+                state['spawned_count'] = 0
                 state['level_spawn_time'] = now
-                state['level_second_spawned'] = False
                 state['level_complete'] = False
-            elif not state['level_second_spawned'] and now - state['level_spawn_time'] > 3.0:
-                state['enemies'].append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'stickyman', 'collided': False})
-                state['level_second_spawned'] = True
+            # Spawn enemies
+            while state['spawned_count'] < state['max_enemies'] and now - state['level_spawn_time'] >= state['spawn_delays'][state['spawned_count']]:
+                z_pos = random.uniform(-10, 10)
+                state['enemies'].append({'pos': [20.0, -1.0, z_pos], 'alive': True, 'type': 'stickyman', 'collided': False})
+                state['spawned_count'] += 1
             for enemy in state['enemies']:
                 if not enemy['alive']:
                     continue
@@ -176,22 +198,25 @@ def main():
                     if not enemy.get('collided', False):
                         state['player_life'] -= 2
                         enemy['collided'] = True
-            if all(not e['alive'] or e.get('collided', False) for e in state['enemies']) and state['level_second_spawned']:
+            if all(not e['alive'] or e.get('collided', False) for e in state['enemies']) and state['spawned_count'] == state['max_enemies']:
                 if not state['level_complete']:
                     state['level_complete'] = True
                     state['level'] += 1
                     state['level_spawn_time'] = None
-                    state['level_second_spawned'] = False
+                    state['spawned_count'] = 0
                     state['enemies'] = []
         elif state['level'] == 2:
             if not state['level_spawn_time']:
-                state['enemies'] = [{'pos': [20.0, 8.0, 0.0], 'alive': True, 'type': 'bug', 'collided': False}]
+                state['enemies'] = []
+                state['spawn_delays'] = [0, 2] + [random.uniform(2, 5) for _ in range(3)]
+                state['spawned_count'] = 0
                 state['level_spawn_time'] = now
-                state['level_second_spawned'] = False
                 state['level_complete'] = False
-            elif not state['level_second_spawned'] and now - state['level_spawn_time'] > 3.0:
-                state['enemies'].append({'pos': [20.0, 8.0, 6.0], 'alive': True, 'type': 'bug', 'collided': False})
-                state['level_second_spawned'] = True
+            # Spawn enemies
+            while state['spawned_count'] < state['max_enemies'] and now - state['level_spawn_time'] >= state['spawn_delays'][state['spawned_count']]:
+                z_pos = random.uniform(-10, 10)
+                state['enemies'].append({'pos': [20.0, 8.0, z_pos], 'alive': True, 'type': 'bug', 'collided': False})
+                state['spawned_count'] += 1
             for enemy in state['enemies']:
                 if not enemy['alive']:
                     continue
@@ -212,22 +237,25 @@ def main():
                     if not enemy.get('collided', False):
                         state['player_life'] -= 2
                         enemy['collided'] = True
-            if all(not e['alive'] or e.get('collided', False) for e in state['enemies']) and state['level_second_spawned']:
+            if all(not e['alive'] or e.get('collided', False) for e in state['enemies']) and state['spawned_count'] == state['max_enemies']:
                 if not state['level_complete']:
                     state['level_complete'] = True
                     state['level'] += 1
                     state['level_spawn_time'] = None
-                    state['level_second_spawned'] = False
+                    state['spawned_count'] = 0
                     state['enemies'] = []
         elif state['level'] == 3:
             if not state['level_spawn_time']:
-                state['enemies'] = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': [], 'shots_fired': 0, 'collided': False}]
+                state['enemies'] = []
+                state['spawn_delays'] = [0, 2] + [random.uniform(2, 5) for _ in range(3)]
+                state['spawned_count'] = 0
                 state['level_spawn_time'] = now
-                state['level_second_spawned'] = False
                 state['level_complete'] = False
-            elif not state['level_second_spawned'] and now - state['level_spawn_time'] > 3.0:
-                state['enemies'].append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': [], 'shots_fired': 0, 'collided': False})
-                state['level_second_spawned'] = True
+            # Spawn enemies
+            while state['spawned_count'] < state['max_enemies'] and now - state['level_spawn_time'] >= state['spawn_delays'][state['spawned_count']]:
+                z_pos = random.uniform(-10, 10)
+                state['enemies'].append({'pos': [20.0, -1.0, z_pos], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': [], 'shots_fired': 0, 'collided': False})
+                state['spawned_count'] += 1
             for enemy in state['enemies']:
                 if not enemy['alive']:
                     continue
@@ -271,12 +299,12 @@ def main():
                         if abs(arrow['x'] - -20.0) < 1.0 and abs(arrow['z'] - state['cannon_z']) < 1.0:
                             state['player_life'] -= 1
                             arrow['alive'] = False
-            if all(not e['alive'] or e.get('collided', False) for e in state['enemies']) and state['level_second_spawned']:
+            if all(not e['alive'] or e.get('collided', False) for e in state['enemies']) and state['spawned_count'] == state['max_enemies']:
                 if not state['level_complete']:
                     state['level_complete'] = True
                     state['level'] += 1
                     state['level_spawn_time'] = None
-                    state['level_second_spawned'] = False
+                    state['spawned_count'] = 0
                     state['enemies'] = []
         elif state['level'] == 4:
             if not state['level_spawn_time']:
@@ -429,6 +457,8 @@ def main():
                 state['cheat_cooldown_end'] = now + state['cheat_cooldown']
                 state['cheat_shots'] = 0
                 state['cheat_last_shot_time'] = now - state['cheat_shot_delay']  # shoot immediately
+        elif key == b'v' or key == b'V':
+            state['view_mode'] = 'first' if state['view_mode'] == 'third' else 'third'
         elif key == b'=':
             state['camera_distance'] = max(20.0, state['camera_distance'] - 2.0)
         elif key == b'-':
@@ -486,6 +516,7 @@ def main():
     print("- Press SPACE to fire bullets")
     print("- Press L to activate laser (5s active, 30s cooldown)")
     print("- Press C to activate cheat mode (auto-aim & shoot 3 enemies, 20s cooldown)")
+    print("- Press V to toggle view (third/first person)")
     glutMainLoop()
 
 if __name__ == '__main__':
