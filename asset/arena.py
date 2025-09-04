@@ -1,3 +1,63 @@
+# --- GLOBALS NEEDED FOR GAME STATE ---
+audience_data = []
+cheer_time = 0.0
+camera_distance = 35.0
+camera_angle = 0.0
+camera_height = 24.0
+camera_move_speed = 3.0
+show_aiming_line = True
+aiming_point = [0.0, 0.0, 0.0]
+CANNON_MIN_Z = -12.0
+CANNON_MAX_Z = 12.0
+CANNON_MIN_ANGLE = 0.0
+CANNON_MAX_ANGLE = 90.0
+bombs = []
+bomb_speed = 0.8
+gravity = -0.02
+max_bombs = 10
+zoom_speed = 2.0
+# --- GLOBALS NEEDED FOR GAME STATE ---
+audience_data = []
+cheer_time = 0.0
+camera_distance = 35.0
+camera_angle = 0.0
+camera_height = 24.0
+camera_move_speed = 3.0
+show_aiming_line = True
+aiming_point = [0.0, 0.0, 0.0]
+CANNON_MIN_Z = -12.0
+CANNON_MAX_Z = 12.0
+CANNON_MIN_ANGLE = 0.0
+CANNON_MAX_ANGLE = 90.0
+cannon_z = 0.0
+cannon_angle = 45.0
+bombs = []
+bomb_speed = 0.8
+gravity = -0.02
+max_bombs = 10
+zoom_speed = 2.0
+# ...existing code...
+
+# --- INIT FUNCTION (OpenGL and game setup) ---
+def init():
+    glClearColor(0.15, 0.2, 0.25, 1.0)  # Natural sky blue-gray
+    glEnable(GL_DEPTH_TEST)
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
+    glEnable(GL_COLOR_MATERIAL)
+    # Set up lighting
+    light_pos = [10.0, 15.0, 10.0, 1.0]
+    light_ambient = [0.3, 0.3, 0.4, 1.0]
+    light_diffuse = [0.8, 0.8, 0.9, 1.0]
+    light_specular = [1.0, 1.0, 1.0, 1.0]
+    glLightfv(GL_LIGHT0, GL_POSITION, light_pos)
+    glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient)
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse)
+    glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular)
+    glMatrixMode(GL_PROJECTION)
+    gluPerspective(60, 1.0, 1.0, 100.0)
+    glMatrixMode(GL_MODELVIEW)
+    generate_audience()
 
 import lvl1_stickyman as lvl1_stickyman
 import lvl2_bug as lvl2_bug
@@ -6,7 +66,7 @@ import lvl4_boss as lvl4_boss
 
 
 # --- GAME/ENEMY STATE ---
-PLAYER_LIFE = 2
+PLAYER_LIFE = 20
 player_life = PLAYER_LIFE
 
 
@@ -22,62 +82,16 @@ score = 0
 bullets = []  # Each: {'x','y','z','vx','vy','vz','alive'}
 bullet_speed = 1.2
 
+
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
+from OpenGL.GLUT import GLUT_BITMAP_HELVETICA_18
 import sys
 import math
 import random
 
-# Global variables
-camera_angle = 0.0
-audience_data = []
-num_audience = 150
-cheer_time = 0.0
-camera_distance = 35.0  # Auto zoom to show arena fully
-zoom_speed = 2.0
-camera_height = 24.0  # Controllable camera height
-camera_move_speed = 3.0  # Speed for camera movement
-
-# Cannon variables
-cannon_z = 0.0  # Position along length side of arena
-cannon_angle = 45.0  # Vertical angle (0-90 degrees)
-show_aiming_line = False
-aiming_point = [0.0, 0.0, 0.0]
-CANNON_MIN_Z = -12.0  # Arena boundary limits along length
-CANNON_MAX_Z = 12.0
-CANNON_MIN_ANGLE = 0.0
-CANNON_MAX_ANGLE = 90.0
-
-# Bomb shooting variables
-bombs = []  # List to store active bombs
-bomb_speed = 0.8
-gravity = -0.02
-max_bombs = 10
-
-def init():
-    glClearColor(0.15, 0.2, 0.25, 1.0)  # Natural sky blue-gray
-    glEnable(GL_DEPTH_TEST)
-    glEnable(GL_LIGHTING)
-    glEnable(GL_LIGHT0)
-    glEnable(GL_COLOR_MATERIAL)
-    
-    # Set up lighting
-    light_pos = [10.0, 15.0, 10.0, 1.0]
-    light_ambient = [0.3, 0.3, 0.4, 1.0]
-    light_diffuse = [0.8, 0.8, 0.9, 1.0]
-    light_specular = [1.0, 1.0, 1.0, 1.0]
-    
-    glLightfv(GL_LIGHT0, GL_POSITION, light_pos)
-    glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient)
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse)
-    glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular)
-    
-    glMatrixMode(GL_PROJECTION)
-    gluPerspective(60, 1.0, 1.0, 100.0)
-    glMatrixMode(GL_MODELVIEW)
-    
-    generate_audience()
+# ...existing code...
 
 def generate_audience():
     """Generate random positions and animations for audience members"""
@@ -540,35 +554,32 @@ def move_cannon_down():
             calculate_aiming_point()
         print(f"Cannon moved down to Z: {cannon_z:.1f}")
 
-def tilt_cannon_up():
-    """Tilt cannon barrel up with angle limits"""
-    global cannon_angle
-    new_angle = cannon_angle + 5.0
-    if new_angle <= CANNON_MAX_ANGLE:
-        cannon_angle = new_angle
-        if show_aiming_line:
-            calculate_aiming_point()
-        print(f"Cannon tilted up to angle: {cannon_angle:.1f}°")
 
-def tilt_cannon_down():
-    """Tilt cannon barrel down with angle limits"""
+# Fix: Up means aim/model up, Down means aim/model down
+def tilt_cannon_up():
+    """Tilt cannon barrel up with angle limits (aim/model both up)"""
     global cannon_angle
     new_angle = cannon_angle - 5.0
     if new_angle >= CANNON_MIN_ANGLE:
         cannon_angle = new_angle
         if show_aiming_line:
             calculate_aiming_point()
+        print(f"Cannon tilted up to angle: {cannon_angle:.1f}°")
+
+def tilt_cannon_down():
+    """Tilt cannon barrel down with angle limits (aim/model both down)"""
+    global cannon_angle
+    new_angle = cannon_angle + 5.0
+    if new_angle <= CANNON_MAX_ANGLE:
+        cannon_angle = new_angle
+        if show_aiming_line:
+            calculate_aiming_point()
         print(f"Cannon tilted down to angle: {cannon_angle:.1f}°")
 
+
+# Aiming is always on now, so this is a no-op
 def toggle_aiming():
-    """Toggle aiming line display and calculate aiming point"""
-    global show_aiming_line
-    show_aiming_line = not show_aiming_line
-    if show_aiming_line:
-        calculate_aiming_point()
-        print(f"AIMING ON: Cannon at Z:{cannon_z:.1f}, Angle:{cannon_angle:.1f}°")
-    else:
-        print("AIMING OFF")
+    pass
 
 # BOMB FUNCTIONS
 def create_bomb():
@@ -769,8 +780,13 @@ def display():
     glWindowPos2f(10, 40)
     level_name = {1: 'Stickyman', 2: 'Bug', 3: 'Archer', 4: 'Boss'}
     s = f"Life: {player_life}  |  Level {level}: {level_name.get(level, '')}  |  Score: {score}"
+    # Ensure GLUT_BITMAP_HELVETICA_18 is defined
+    try:
+        font = GLUT_BITMAP_HELVETICA_18
+    except NameError:
+        from OpenGL.GLUT import GLUT_BITMAP_HELVETICA_18 as font
     for c in s:
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(c))
+        glutBitmapCharacter(font, ord(c))
     glEnable(GL_LIGHTING)
 
     glutSwapBuffers()
@@ -787,12 +803,12 @@ def idle():
     # Level 1: Stickyman
     if level == 1:
         if not level_spawn_time:
-            enemies = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'stickyman'}]
+            enemies = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'stickyman', 'collided': False}]
             level_spawn_time = now
             level_second_spawned = False
             level_complete = False
         elif not level_second_spawned and now - level_spawn_time > 3.0:
-            enemies.append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'stickyman'})
+            enemies.append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'stickyman', 'collided': False})
             level_second_spawned = True
         # Move stickymen
         for enemy in enemies:
@@ -804,12 +820,14 @@ def idle():
             if dist > 1.0:
                 enemy['pos'][0] += 0.08 * dx / dist
                 enemy['pos'][2] += 0.08 * dz / dist
+                enemy['collided'] = False
             else:
-                enemy['alive'] = False
-                player_life -= 20
-                print("Stickyman reached the cannon! Player life:", player_life)
+                if not enemy.get('collided', False):
+                    player_life -= 2
+                    enemy['collided'] = True
+                    print("Stickyman reached the cannon! Player life:", player_life)
         # Level complete check
-        if all(not e['alive'] for e in enemies) and level_second_spawned:
+        if all(not e['alive'] or e.get('collided', False) for e in enemies) and level_second_spawned:
             if not level_complete:
                 level_complete = True
                 print("Level 1 Complete!")
@@ -820,12 +838,12 @@ def idle():
     # Level 2: Bug
     elif level == 2:
         if not level_spawn_time:
-            enemies = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'bug'}]
+            enemies = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'bug', 'collided': False}]
             level_spawn_time = now
             level_second_spawned = False
             level_complete = False
         elif not level_second_spawned and now - level_spawn_time > 3.0:
-            enemies.append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'bug'})
+            enemies.append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'bug', 'collided': False})
             level_second_spawned = True
         # Move bugs
         for enemy in enemies:
@@ -837,12 +855,14 @@ def idle():
             if dist > 1.0:
                 enemy['pos'][0] += 0.13 * dx / dist
                 enemy['pos'][2] += 0.13 * dz / dist
+                enemy['collided'] = False
             else:
-                enemy['alive'] = False
-                player_life -= 30
-                print("Bug reached the cannon! Player life:", player_life)
+                if not enemy.get('collided', False):
+                    player_life -= 2
+                    enemy['collided'] = True
+                    print("Bug reached the cannon! Player life:", player_life)
         # Level complete check
-        if all(not e['alive'] for e in enemies) and level_second_spawned:
+        if all(not e['alive'] or e.get('collided', False) for e in enemies) and level_second_spawned:
             if not level_complete:
                 level_complete = True
                 print("Level 2 Complete!")
@@ -853,12 +873,12 @@ def idle():
     # Level 3: Archer
     elif level == 3:
         if not level_spawn_time:
-            enemies = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': []}]
+            enemies = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': [], 'collided': False}]
             level_spawn_time = now
             level_second_spawned = False
             level_complete = False
         elif not level_second_spawned and now - level_spawn_time > 3.0:
-            enemies.append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': []})
+            enemies.append({'pos': [20.0, -1.0, 6.0], 'alive': True, 'type': 'archer', 'walk_timer': 0.0, 'shoot_timer': 0.0, 'walking': True, 'arrows': [], 'collided': False})
             level_second_spawned = True
         # Move archers and handle shooting
         for enemy in enemies:
@@ -874,10 +894,12 @@ def idle():
                     if dist > 1.0:
                         enemy['pos'][0] += 0.06 * dx / dist
                         enemy['pos'][2] += 0.06 * dz / dist
+                        enemy['collided'] = False
                     else:
-                        enemy['alive'] = False
-                        player_life -= 40
-                        print("Archer reached the cannon! Player life:", player_life)
+                        if not enemy.get('collided', False):
+                            player_life -= 2
+                            enemy['collided'] = True
+                            print("Archer reached the cannon! Player life:", player_life)
                 else:
                     enemy['walking'] = False
                     enemy['walk_timer'] = 0.0
@@ -902,11 +924,11 @@ def idle():
                     arrow['z'] += arrow['dz'] * 0.5
                     # Check if hit cannon
                     if abs(arrow['x'] - -20.0) < 1.0 and abs(arrow['z'] - cannon_z) < 1.0:
-                        player_life -= 20
+                        player_life -= 1
                         arrow['alive'] = False
                         print("Archer arrow hit the cannon! Player life:", player_life)
         # Level complete check
-        if all(not e['alive'] for e in enemies) and level_second_spawned:
+        if all(not e['alive'] or e.get('collided', False) for e in enemies) and level_second_spawned:
             if not level_complete:
                 level_complete = True
                 print("Level 3 Complete!")
@@ -917,7 +939,7 @@ def idle():
     # Level 4: Boss
     elif level == 4:
         if not level_spawn_time:
-            enemies = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'boss', 'projectiles': []}]
+            enemies = [{'pos': [20.0, -1.0, 0.0], 'alive': True, 'type': 'boss', 'projectiles': [], 'collided': False}]
             level_spawn_time = now
             level_complete = False
         # Move boss
@@ -930,10 +952,12 @@ def idle():
             if dist > 1.0:
                 enemy['pos'][0] += 0.18 * dx / dist
                 enemy['pos'][2] += 0.18 * dz / dist
+                enemy['collided'] = False
             else:
-                enemy['alive'] = False
-                player_life -= 60
-                print("Boss reached the cannon! Player life:", player_life)
+                if not enemy.get('collided', False):
+                    player_life -= 5
+                    enemy['collided'] = True
+                    print("Boss reached the cannon! Player life:", player_life)
             # Boss shoots projectiles every 1s
             if int(now*2) % 2 == 0 and len(enemy['projectiles']) < 3:
                 for i in range(3):
@@ -951,11 +975,11 @@ def idle():
                     proj['x'] += proj['dx'] * 0.7
                     proj['z'] += proj['dz'] * 0.7
                     if abs(proj['x'] - -20.0) < 1.0 and abs(proj['z'] - cannon_z) < 1.0:
-                        player_life -= 30
+                        player_life -= 2
                         proj['alive'] = False
                         print("Boss projectile hit the cannon! Player life:", player_life)
         # Level complete check
-        if all(not e['alive'] for e in enemies):
+        if all(not e['alive'] or e.get('collided', False) for e in enemies):
             if not level_complete:
                 level_complete = True
                 print("Level 4 Complete! YOU WIN!")
@@ -987,14 +1011,24 @@ def idle():
                 print(f"{enemy['type'].capitalize()} killed by bullet! Score: {score}")
     # --- GAME OVER CHECK ---
     if player_life <= 0:
-        print("Game Over! Player died.")
+        print("\n==================== GAME OVER ====================")
+        print(f"Final Score: {score}")
+        print(f"Level Reached: {level}")
+        print("Better luck next time!")
+        sys.exit(0)
+    # --- GAME WIN CHECK ---
+    if level == 4 and level_complete:
+        print("\n==================== YOU WIN! ====================")
+        print(f"Final Score: {score}")
+        print(f"All levels completed!")
         sys.exit(0)
 
     glutPostRedisplay()
 
+
+# Keyboard handler (top-level, not inside idle)
 def keyboard(key, x, y):
     global camera_distance, camera_angle, camera_height
-    
     if key == b'q' or key == b'\x1b':  # 'q' or ESC to quit
         sys.exit(0)
     elif key == b' ':  # Space to manually rotate camera
@@ -1004,9 +1038,9 @@ def keyboard(key, x, y):
     elif key == b'-':  # '-' key for zoom out
         camera_distance = min(150.0, camera_distance + zoom_speed)
     # CANNON CONTROLS
-    elif key == b'w':  # Move camera up (changed from w to avoid conflict)
+    elif key == b'w':  # Move camera up
         camera_height += camera_move_speed
-    elif key == b's':  # Move camera down (changed from s to avoid conflict)
+    elif key == b's':  # Move camera down
         camera_height = max(5.0, camera_height - camera_move_speed)
     elif key == b'j' or key == b'J':  # Move cannon down along length side
         move_cannon_down()
@@ -1016,8 +1050,10 @@ def keyboard(key, x, y):
         tilt_cannon_up()
     elif key == b'i' or key == b'I':  # Tilt cannon down
         tilt_cannon_down()
-    elif key == b'c' or key == b'C':  # Toggle aiming
-        toggle_aiming()
+    elif key == b'a' or key == b'A':  # Camera left (same as left arrow)
+        camera_angle -= camera_move_speed
+    elif key == b'd' or key == b'D':  # Camera right (same as right arrow)
+        camera_angle += camera_move_speed
     elif key == b'f' or key == b'F':  # FIRE bomb
         create_bomb()
     elif key == b'y' or key == b'Y':  # Shoot bullet
@@ -1035,19 +1071,18 @@ def keyboard(key, x, y):
         bullets.append({'x': tip_x, 'y': tip_y, 'z': tip_z, 'vx': vx, 'vy': vy, 'vz': vz, 'alive': True})
         print("Bullet fired!")
 
+
 def special_keys(key, x, y):
     """Handle special keys for camera movement and zoom control"""
     global camera_distance, camera_angle, camera_height, camera_move_speed
-    
-    if key == GLUT_KEY_LEFT:  # Rotate camera left
+    if key == GLUT_KEY_LEFT:  # Rotate camera left (same as 'a')
         camera_angle -= camera_move_speed
-    elif key == GLUT_KEY_RIGHT:  # Rotate camera right
+    elif key == GLUT_KEY_RIGHT:  # Rotate camera right (same as 'd')
         camera_angle += camera_move_speed
     elif key == GLUT_KEY_UP:  # Zoom in
         camera_distance = max(20.0, camera_distance - zoom_speed)
     elif key == GLUT_KEY_DOWN:  # Zoom out
         camera_distance = min(150.0, camera_distance + zoom_speed)
-    
     glutPostRedisplay()
 
 def reshape(width, height):
