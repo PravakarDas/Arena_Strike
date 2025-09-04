@@ -66,12 +66,13 @@ def main():
                 continue
             glPushMatrix()
             glTranslatef(enemy['pos'][0], enemy['pos'][1], enemy['pos'][2])
+            animation_time = glutGet(GLUT_ELAPSED_TIME) / 1000.0
             if enemy['type'] == 'stickyman':
-                draw_stickman(0)
+                draw_stickman(animation_time)
             elif enemy['type'] == 'bug':
-                draw_bug(0)
+                draw_bug(animation_time)
             elif enemy['type'] == 'archer':
-                draw_archer(0)
+                draw_archer(animation_time)
                 for arrow in enemy.get('arrows', []):
                     if arrow['alive']:
                         glPushMatrix()
@@ -80,7 +81,7 @@ def main():
                         glutSolidSphere(0.12, 12, 12)
                         glPopMatrix()
             elif enemy['type'] == 'boss':
-                draw_boss_demon_queen(0)
+                draw_boss_demon_queen(animation_time)
                 for proj in enemy.get('projectiles', []):
                     if proj['alive']:
                         glPushMatrix()
