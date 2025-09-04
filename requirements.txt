@@ -3,3 +3,4 @@ mediapipe
 PyOpenGL
 PyOpenGL_accelerate
 numpy
+playsound==1.2.2

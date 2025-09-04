@@ -4,14 +4,16 @@ import random
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
-from asset.arena_model import *
-from asset.cannon_model import *
-from asset.bombs import *
-from asset.bullets import *
-from asset.lvl1_stickyman import *
-from asset.lvl2_bug import *
-from asset.lvl3_archer import *
-from asset.lvl4_boss import *
+from assets.arena_model import *
+from assets.cannon_model import *
+from assets.bombs import *
+from assets.bullets import *
+from assets.lvl1_stickyman import *
+from assets.lvl2_bug import *
+from assets.lvl3_archer import *
+from assets.lvl4_boss import *
+import threading
+from playsound import playsound
 
 def main():
     state = {
@@ -61,6 +63,14 @@ def main():
         'spawn_delays': [],
         'view_mode': 'third'
     }
+
+    # Start BGM loop
+    def play_bgm():
+        while True:
+            playsound('assets/bgm/bgm.mp3')
+
+    bgm_thread = threading.Thread(target=play_bgm, daemon=True)
+    bgm_thread.start()
 
     def display():
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -378,6 +388,7 @@ def main():
                     if dist_perp < 1.0 and proj < 30.0:  # Within 1 unit and 30 units range
                         enemy['alive'] = False
                         state['score'] += 100
+                        playsound('assets/bgm/enemy die_bgm.mp3', block=False)
         # --- CHEAT MODE LOGIC ---
         if state['cheat_active'] and now - state['cheat_last_shot_time'] >= state['cheat_shot_delay']:
             # Find closest enemy
@@ -423,8 +434,10 @@ def main():
                     enemy['alive'] = False
                     bullet['alive'] = False
                     state['score'] += 100
+                    playsound('assets/bgm/enemy die_bgm.mp3', block=False)
         # --- GAME OVER CHECK ---
         if state['player_life'] <= 0:
+            playsound('assets/bgm/player_die_bgm.mp3', block=False)
             print("\n==================== GAME OVER ====================")
             print(f"Final Score: {state['score']}")
             print(f"Level Reached: {state['level']}")
@@ -443,12 +456,17 @@ def main():
             sys.exit(0)
         elif key == b' ':
             create_bullet(state['bullets'], state['cannon_z'], state['cannon_angle'], state['bullet_speed'])
+            playsound('assets/bgm/bomb_bgm.mp3', block=False)
         elif key == b'l' or key == b'L':
             now = glutGet(GLUT_ELAPSED_TIME) / 1000.0
             if not state['laser_active'] and now >= state['laser_cooldown_end']:
                 state['laser_active'] = True
                 state['laser_start_time'] = now
                 state['laser_cooldown_end'] = now + state['laser_duration'] + state['laser_cooldown']
+                def laser_loop():
+                    while state['laser_active']:
+                        playsound('assets/bgm/laser_bgm.mp3')
+                threading.Thread(target=laser_loop, daemon=True).start()
         elif key == b'c' or key == b'C':
             now = glutGet(GLUT_ELAPSED_TIME) / 1000.0
             if not state['cheat_active'] and now >= state['cheat_cooldown_end']:
@@ -471,6 +489,11 @@ def main():
             state['cannon_z'] = move_cannon_down(state['cannon_z'], state['CANNON_MIN_Z']) 
         elif key == b'd' or key == b'D': #done
             state['cannon_z'] = move_cannon_up(state['cannon_z'], state['CANNON_MAX_Z'])
+
+    def mouse(button, state_mouse, x, y):
+        if button == GLUT_LEFT_BUTTON and state_mouse == GLUT_DOWN:
+            create_bomb(state['bombs'], state['cannon_z'], state['cannon_angle'], state['bomb_speed'], state['max_bombs'], state['gravity'])
+            playsound('assets/bgm/bomb_bgm.mp3', block=False)
 
     def special_keys(key, x, y):
         if key == GLUT_KEY_LEFT:
@@ -509,6 +532,7 @@ def main():
     glutDisplayFunc(display)
     glutIdleFunc(idle)
     glutKeyboardFunc(keyboard)
+    glutMouseFunc(mouse)
     glutSpecialFunc(special_keys)
     glutReshapeFunc(reshape)
     print("=== ARENA STRIKE - 3D Arena with Cannon & Bombs ===")
