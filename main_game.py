@@ -14,6 +14,7 @@ from assets.lvl3_archer import *
 from assets.lvl4_boss import *
 import threading
 from playsound import playsound
+from hand_control_tracking import HandTracker
 
 def main():
     state = {
@@ -68,6 +69,23 @@ def main():
 
     bgm_thread = threading.Thread(target=play_bgm, daemon=True)
     bgm_thread.start()
+
+    # Start hand tracker
+    tracker = HandTracker(device=0)
+    tracker.start()
+    # Wait until ready (timeout after 5s)
+    start_wait = glutGet(GLUT_ELAPSED_TIME) / 1000.0
+    wait_timeout = 5.0
+    # Busy-wait a short time; tracker.ready set in thread
+    import time
+    waited = 0.0
+    while not tracker.ready and waited < wait_timeout:
+        time.sleep(0.05)
+        waited += 0.05
+    if not tracker.ready:
+        print('Warning: Hand tracker not ready, continuing with keyboard controls only.')
+    else:
+        print('Hand tracker ready: gesture controls active')
 
     def display():
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -173,6 +191,64 @@ def main():
 
     def idle():
         state['cheer_time'] += 0.05
+        # --- Gesture input processing ---
+        if tracker.ready:
+            actions = tracker.get_actions()
+            # Edge actions
+            if actions.get('fire'):
+                create_bullet(state['bullets'], state['cannon_z'], state['cannon_angle'], state['bullet_speed'])
+                playsound('assets/bgm/bomb_bgm.mp3', block=False)
+            if actions.get('laser_toggle'):
+                now = glutGet(GLUT_ELAPSED_TIME) / 1000.0
+                if not state['laser_active'] and now >= state['laser_cooldown_end']:
+                    state['laser_active'] = True
+                    state['laser_start_time'] = now
+                    state['laser_cooldown_end'] = now + state['laser_duration'] + state['laser_cooldown']
+                    def laser_loop():
+                        while state['laser_active']:
+                            playsound('assets/bgm/laser_bgm.mp3')
+                    threading.Thread(target=laser_loop, daemon=True).start()
+            if actions.get('cheat_toggle'):
+                now = glutGet(GLUT_ELAPSED_TIME) / 1000.0
+                if not state['cheat_active'] and now >= state['cheat_cooldown_end']:
+                    state['cheat_active'] = True
+                    state['cheat_start_time'] = now
+                    state['cheat_cooldown_end'] = now + state['cheat_cooldown']
+                    state['cheat_shots'] = 0
+                    state['cheat_last_shot_time'] = now - state['cheat_shot_delay']
+            if actions.get('quit'):
+                # stop tracker and exit
+                tracker.stop()
+                sys.exit(0)
+            if actions.get('view_toggle'):
+                state['view_mode'] = 'first' if state['view_mode'] == 'third' else 'third'
+
+            # continuous controls
+            # zoom: -1 zoom in, 1 zoom out
+            zoom_val = actions.get('zoom', 0.0)
+            if zoom_val < 0:
+                state['camera_distance'] = max(20.0, state['camera_distance'] - 2.0)
+            elif zoom_val > 0:
+                state['camera_distance'] = min(150.0, state['camera_distance'] + 2.0)
+
+            cz_delta = actions.get('cannon_z_delta', 0.0)
+            if abs(cz_delta) > 0.001:
+                # move cannon z
+                new_z = state['cannon_z'] + cz_delta * 0.02
+                state['cannon_z'] = max(state['CANNON_MIN_Z'], min(state['CANNON_MAX_Z'], new_z))
+
+            ca_delta = actions.get('cannon_angle_delta', 0.0)
+            if abs(ca_delta) > 0.001:
+                new_ang = state['cannon_angle'] + ca_delta * 0.01
+                state['cannon_angle'] = max(state['CANNON_MIN_ANGLE'], min(state['CANNON_MAX_ANGLE'], new_ang))
+
+            cam_ang_delta = actions.get('camera_angle_delta', 0.0)
+            if abs(cam_ang_delta) > 0.001:
+                state['camera_angle'] += cam_ang_delta * 0.0005
+            cam_h_delta = actions.get('camera_height_delta', 0.0)
+            if abs(cam_h_delta) > 0.001:
+                state['camera_height'] = max(5.0, state['camera_height'] + cam_h_delta * 0.001)
+
         update_bullets(state['bullets'])
         # --- LEVEL LOGIC ---
         now = glutGet(GLUT_ELAPSED_TIME) / 1000.0
