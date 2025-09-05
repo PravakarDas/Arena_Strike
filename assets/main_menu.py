@@ -6,6 +6,7 @@ from OpenGL.GLUT import *
 import sys
 import math
 import time
+import subprocess
 
 # Import the existing modules
 try:
@@ -258,13 +259,12 @@ def execute_selection():
     global current_state, menu_selection
     
     if menu_selection == 1:  # Play
-        current_state = PLAYING
-        print("Game Started!")
+        glutLeaveMainLoop()
+        subprocess.run(['python', '../main_game.py'])
     elif menu_selection == 2:  # Settings
-        current_state = SETTINGS
-        print("Entered Settings")
+        glutLeaveMainLoop()
+        subprocess.run(['python', 'settings_model.py'])
     elif menu_selection == 3:  # Quit
-        print("Thanks for playing Arena Strike!")
         glutLeaveMainLoop()
     
     menu_selection = 0

@@ -7,6 +7,11 @@ import sys
 import math
 import time
 
+# Settings variables
+sound_enabled = True
+sfx_enabled = True
+playing_mode = "Easy"
+
 # Import the existing modules
 try:
     from arena_model import *
