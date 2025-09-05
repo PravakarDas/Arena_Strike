@@ -31,10 +31,7 @@ def main():
         'CANNON_MAX_ANGLE': 90.0,
         'cannon_z': 0.0,
         'cannon_angle': 45.0,
-        'bombs': [],
-        'bomb_speed': 0.8,
         'gravity': -0.02,
-        'max_bombs': 10,
         'bullets': [],
         'bullet_speed': 1.2,
         'PLAYER_LIFE': 20,
@@ -119,7 +116,6 @@ def main():
             glEnd()
             glLineWidth(1.0)
             glEnable(GL_LIGHTING)
-        draw_all_bombs(state['bombs'])
         draw_bullets(state['bullets'])
 
         for enemy in state['enemies']:
@@ -177,7 +173,6 @@ def main():
 
     def idle():
         state['cheer_time'] += 0.05
-        update_bombs(state['bombs'], state['gravity'])
         update_bullets(state['bullets'])
         # --- LEVEL LOGIC ---
         now = glutGet(GLUT_ELAPSED_TIME) / 1000.0
@@ -288,7 +283,7 @@ def main():
                             enemy['collided'] = True
                 else:
                     enemy['shoot_timer'] += 0.016
-                    if enemy['shoot_timer'] > 2.0:  # Shoot every 2 seconds instead of 3
+                    if enemy['shoot_timer'] > 2.0: 
                         dx = -20.0 - enemy['pos'][0]
                         dz = state['cannon_z'] - enemy['pos'][2]
                         dist = (dx*dx + dz*dz) ** 0.5
@@ -490,18 +485,11 @@ def main():
         elif key == b'd' or key == b'D': #done
             state['cannon_z'] = move_cannon_up(state['cannon_z'], state['CANNON_MAX_Z'])
 
-    def mouse(button, state_mouse, x, y):
-        if button == GLUT_LEFT_BUTTON and state_mouse == GLUT_DOWN:
-            create_bomb(state['bombs'], state['cannon_z'], state['cannon_angle'], state['bomb_speed'], state['max_bombs'], state['gravity'])
-            playsound('assets/bgm/bomb_bgm.mp3', block=False)
-
     def special_keys(key, x, y):
         if key == GLUT_KEY_LEFT:
-            state['camera_angle'] -= state['camera_move_speed']
-            # state['camera_angle'] -= state['camera_move_speed']
+            state['camera_angle'] -= state['camera_move_speed']            
         elif key == GLUT_KEY_RIGHT:
-            state['camera_angle'] += state['camera_move_speed']
-            # state['camera_angle'] += state['camera_move_speed']
+            state['camera_angle'] += state['camera_move_speed']            
         elif key == GLUT_KEY_UP:
             state['camera_distance'] = max(20.0, state['camera_distance'] - 2.0)
             state['camera_height'] += state['camera_move_speed']
@@ -532,7 +520,6 @@ def main():
     glutDisplayFunc(display)
     glutIdleFunc(idle)
     glutKeyboardFunc(keyboard)
-    glutMouseFunc(mouse)
     glutSpecialFunc(special_keys)
     glutReshapeFunc(reshape)
     print("=== ARENA STRIKE - 3D Arena with Cannon & Bombs ===")
