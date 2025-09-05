@@ -1,110 +1,102 @@
 # Arena Strike
 
-Arena Strike is an exciting 3D cannon defense game built with Python and OpenGL. Players control a powerful cannon to defend against waves of increasingly challenging enemies across four dynamic levels. Engage in intense battles, utilize special weapons, and strive to achieve the highest score in this immersive arena experience.
+Arena Strike is a 3D cannon-defense game implemented in Python and OpenGL. Defend the arena by aiming a powerful cannon, managing special weapons, and surviving waves of enemies across four distinct levels. The project includes traditional keyboard/mouse controls and an optional computer-vision based control mode using OpenCV and MediaPipe.
 
-## How the Game Works
+## Project overview
 
-In Arena Strike, you command a stationary cannon positioned at the edge of a vibrant 3D arena. Enemies spawn from the opposite side and advance towards your position with unique behaviors and attack patterns. Your objective is to eliminate all enemies in each level before they reach and damage your cannon. The game features progressive difficulty, starting with basic ground enemies and culminating in a formidable boss battle. Use strategic aiming, timing, and special abilities to survive and progress through all levels.
-
-## How to Play
-
-1. **Movement**: Use keyboard controls to move the cannon left/right and adjust its barrel angle up/down.
-2. **Firing**: Launch bullets with the spacebar or deploy powerful bombs with left mouse click.
-3. **Special Weapons**: Activate the laser for area damage or use cheat mode for auto-targeting.
-4. **Survival**: Maintain your cannon's health while eliminating enemies to advance levels.
-5. **Objective**: Clear all four levels to achieve victory and maximize your score.
-
-## Special Features
-
-1. **Immersive 3D Graphics**: Stunning OpenGL-rendered arena with detailed models, lighting effects, and atmospheric visuals.
-2. **Dynamic Enemy AI**: Four unique enemy types with distinct behaviors - walking stickymen, flying bugs, shooting archers, and projectile-firing bosses.
-3. **Progressive Difficulty**: Four challenging levels with increasing enemy counts and spawn patterns.
-4. **Multiple Weapon Systems**: Standard bullets, gravity-affected bombs, and a powerful laser weapon.
-5. **Cheat Mode**: Auto-aiming and rapid-fire capability for strategic gameplay advantages.
-6. **Real-time Sound Effects**: Immersive audio feedback including background music, weapon sounds, and enemy defeat cues.
-7. **Interactive HUD**: Live display of player health, current level, score, and weapon cooldowns.
-8. **Dual Camera Views**: Switch between third-person overview and first-person cannon perspective.
-9. **Advanced Collision Detection**: Precise hit detection for projectiles and enemy interactions.
-10. **Scoring System**: Earn points for each enemy defeated, encouraging skillful play.
-11. **Health Management**: Strategic resource management with limited cannon health.
-12. **Atmospheric Effects**: Dynamic audience cheering and environmental lighting for enhanced immersion.
-13. **Coordinated Enemy Attacks**: Archers and bosses launch projectiles that require evasive maneuvers.
-14. **Weapon Cooldowns**: Balanced gameplay with strategic timing for special abilities.
-15. **Victory Conditions**: Clear all levels to achieve a satisfying win state with final score display.
+- Real-time 3D rendering using PyOpenGL.
+- Multiple enemy types and a boss with unique behaviors across four progressive levels.
+- Weapons include bombs (gravity-affected), and a timed-area laser.
+- Interactive HUD, audio feedback, and two camera views (third-person and first-person).
+- Optional hand-gesture control using a webcam (OpenCV + MediaPipe).
 
 ## Requirements
 
 - Python 3.8+
 - PyOpenGL
-- PyOpenGL_accelerate
-- NumPy
+- PyOpenGL_accelerate (optional, for performance)
+- numpy
 - playsound==1.2.2
-- FreeGLUT (for Windows systems)
+- Optional (for camera gesture controls):
+  - opencv-python
+  - mediapipe
+
+All Python dependencies are listed in `requirements.txt` and can be installed with pip.
 
 ## Installation
 
-1. Ensure Python 3.8 or higher is installed on your system.
-2. Install the required dependencies:
+1. Install Python 3.8 or later.
+2. From the project root, install dependencies:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-3. On Windows, install FreeGLUT if not already present (available via MSYS2 or as a DLL in your PATH).
+3. On Windows, ensure FreeGLUT is available (MSYS2 or a DLL in your PATH).
 
-## Running the Game
+## Running the game
 
-From the project root directory:
+Start the game from the project root:
 
 ```powershell
 python main_game.py
 ```
 
-A game window will open, displaying the 3D arena. The terminal will show initial instructions and game status updates.
+The game opens a window and prints initial instructions to the console. Audio files are under `assets/bgm/` and are played with the `playsound` module.
 
-## Controls
+## Controls (keyboard & mouse)
 
-- **A/D**: Move cannon left/right
-- **W/S**: Tilt cannon barrel up/down
-- **Spacebar**: Fire bullet
-- **Left Mouse Click**: Launch bomb
-- **L**: Activate laser (5-second duration, 30-second cooldown)
-- **C**: Activate cheat mode (auto-aim 3 shots, 20-second cooldown)
-- **V**: Toggle between third-person and first-person view
-- **Arrow Keys**: Adjust camera angle and zoom (third-person view)
-- **+/-**: Zoom in/out (third-person view)
-- **Q or ESC**: Quit game
+- A / D — Move cannon left / right
+- W / S — Tilt cannon barrel up / down
+- Space — Fire bullet
+- Left mouse click — Launch bomb
+- L — Activate laser (limited duration, cooldown applies)
+- C — Cheat / auto-aim toggle (limited uses / cooldown)
+- V — Toggle camera view (third-person / first-person)
+- Arrow keys — Adjust third-person camera
+- + / - — Zoom in / out (third-person)
+- Q or Esc — Quit
 
-## Gameplay Tips
+## OpenCV / Hand-gesture control (optional)
 
-- Position your cannon strategically to cover multiple enemy spawn points.
-- Use bombs for area damage against clustered enemies.
-- Save the laser for tough situations or boss encounters.
-- Monitor your health and use cheat mode sparingly for maximum effectiveness.
-- Experiment with camera angles to gain tactical advantages.
+The repository includes a computer-vision control mode that maps webcam-based hand gestures to in-game actions. This is implemented using OpenCV and MediaPipe.
 
-## Project Structure
+- Files of interest:
+  - `hand_control_tracking.py` — A threaded hand tracker that detects gestures and exposes `HandTracker.get_actions()` which the game polls to drive inputs (fire, laser, zoom, camera/cannon deltas, etc.).
+  - `CV_Detection.py` — A demonstration script showing hand/face landmarks, pinch detection, and gesture metrics useful for tuning thresholds.
 
-- `main_game.py`: Main game logic and rendering loop
-- `assets/`: Directory containing 3D models and drawing functions
-  - `arena_model.py`: Arena and environmental rendering
-  - `cannon_model.py`: Cannon visualization
-  - `bullets.py`: Bullet rendering
-  - `bombs.py`: Bomb effects
-  - `lvl1_stickyman.py` to `lvl4_boss.py`: Enemy models
-- `assets/bgm/`: Background music and sound effects
-- `requirements.txt`: Python dependencies
-- `README.md`: This documentation
+- How it works:
+  - The hand tracker captures webcam frames, detects hand landmarks via MediaPipe, and converts gesture states (open/closed hand, pinch, finger positions) into discrete and continuous actions.
+  - `main_game.py` polls the tracker each frame and applies edge-triggered actions (single-fire, toggle laser) and continuous controls (aim offsets, zoom) from the tracker output.
 
-Enjoy defending the arena in Arena Strike!
-- If enemies appear as simple cubes, open the corresponding `asset/` file and check for the expected `draw_*` function names; I can update the controller to match exact names.
+- To enable gesture control:
+  1. Install the optional packages: `pip install opencv-python mediapipe` (they are not strictly required for keyboard play).
+  2. Ensure a webcam is connected and accessible by OpenCV.
+  3. Run the game normally; the hand tracker will start if present and will appear as an input source. See `hand_control_tracking.py` for configurable thresholds and mappings.
 
----
+- Tuning and debugging:
+  - Use `CV_Detection.py` to visualize detected landmarks and debug gestures before enabling them in-game.
+  - Thresholds and action mappings are defined in `hand_control_tracking.py` — adjust sensitivity, pinch thresholds, and mapping logic there.
 
-## Next steps (optional)
+## Project structure
 
-- Add in-window text rendering for score/life and improve HUD.
-- Improve collision and projectile physics.
-- Add polish: sounds, animations, and refined AI.
+- `main_game.py` — Main loop, game state, rendering and input integration
+- `hand_control_tracking.py` — Optional MediaPipe/OpenCV hand tracker and action mapping
+- `assets/` — Rendering modules, models and audio
+  - `arena_model.py`, `cannon_model.py`, `bullets.py`, `bombs.py`, `lvl1_stickyman.py` … `lvl4_boss.py`
+  - `bgm/` — audio files
+- `requirements.txt` — Python dependencies
 
-If you'd like I can now inspect the `asset/` directory and update `main_game.py` to call the exact drawing functions (no code changes unless you request them). Just tell me to proceed.
+## Development notes
+
+- If 3D models render as simple primitives, open the relevant module in `assets/` and ensure the named `draw_*` functions match the calls in `main_game.py`.
+- When modifying gesture controls, prefer incremental changes and validate using `CV_Detection.py`.
+
+## Owner & Contact
+
+This project is maintained by Pravakar. For any questions, feature requests, licensing, or collaboration, please contact: pravakar459@gmail.com
+
+## Troubleshooting
+
+- Common issue: Missing FreeGLUT on Windows — install via MSYS2 or place `freeglut.dll` in a directory on your PATH.
+- Camera not detected — ensure no other application is using the webcam and that OpenCV can open the device index (try `0`, `1`, etc.).
