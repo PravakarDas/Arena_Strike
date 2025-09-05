@@ -1,5 +1,3 @@
-# bombs.py
-# Handles bomb creation, update, and drawing
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
