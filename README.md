@@ -1,103 +1,102 @@
-# Arena_Strike — Python OpenGL Mini-Game
+# Arena Strike
 
-A small Python + OpenGL mini-game where a cannon defends against waves of enemies. Visual models and drawing routines live in `asset/`; the project includes a controller (`main_game.py`) that wires those pieces into a playable prototype.
+Arena Strike is an exciting 3D cannon defense game built with Python and OpenGL. Players control a powerful cannon to defend against waves of increasingly challenging enemies across four dynamic levels. Engage in intense battles, utilize special weapons, and strive to achieve the highest score in this immersive arena experience.
 
-This README documents how the game works, how to run it, and the assumptions made while implementing the game flow.
+## How the Game Works
 
----
+In Arena Strike, you command a stationary cannon positioned at the edge of a vibrant 3D arena. Enemies spawn from the opposite side and advance towards your position with unique behaviors and attack patterns. Your objective is to eliminate all enemies in each level before they reach and damage your cannon. The game features progressive difficulty, starting with basic ground enemies and culminating in a formidable boss battle. Use strategic aiming, timing, and special abilities to survive and progress through all levels.
 
-## What changed / added
+## How to Play
 
-- `main_game.py` — a game controller that implements the 4-level gameplay flow you specified, spawns enemies, handles simple firing, collisions, score and life management, and prints relevant events to the terminal.
+1. **Movement**: Use keyboard controls to move the cannon left/right and adjust its barrel angle up/down.
+2. **Firing**: Launch bullets with the spacebar or deploy powerful bombs with left mouse click.
+3. **Special Weapons**: Activate the laser for area damage or use cheat mode for auto-targeting.
+4. **Survival**: Maintain your cannon's health while eliminating enemies to advance levels.
+5. **Objective**: Clear all four levels to achieve victory and maximize your score.
 
-The original `asset/` modules are used as visual-model providers and are invoked by the controller to render the cannon and enemies; the controller is defensive and uses placeholders when an expected draw function is missing.
+## Special Features
 
----
+1. **Immersive 3D Graphics**: Stunning OpenGL-rendered arena with detailed models, lighting effects, and atmospheric visuals.
+2. **Dynamic Enemy AI**: Four unique enemy types with distinct behaviors - walking stickymen, flying bugs, shooting archers, and projectile-firing bosses.
+3. **Progressive Difficulty**: Four challenging levels with increasing enemy counts and spawn patterns.
+4. **Multiple Weapon Systems**: Standard bullets, gravity-affected bombs, and a powerful laser weapon.
+5. **Cheat Mode**: Auto-aiming and rapid-fire capability for strategic gameplay advantages.
+6. **Real-time Sound Effects**: Immersive audio feedback including background music, weapon sounds, and enemy defeat cues.
+7. **Interactive HUD**: Live display of player health, current level, score, and weapon cooldowns.
+8. **Dual Camera Views**: Switch between third-person overview and first-person cannon perspective.
+9. **Advanced Collision Detection**: Precise hit detection for projectiles and enemy interactions.
+10. **Scoring System**: Earn points for each enemy defeated, encouraging skillful play.
+11. **Health Management**: Strategic resource management with limited cannon health.
+12. **Atmospheric Effects**: Dynamic audience cheering and environmental lighting for enhanced immersion.
+13. **Coordinated Enemy Attacks**: Archers and bosses launch projectiles that require evasive maneuvers.
+14. **Weapon Cooldowns**: Balanced gameplay with strategic timing for special abilities.
+15. **Victory Conditions**: Clear all levels to achieve a satisfying win state with final score display.
 
 ## Requirements
 
 - Python 3.8+
-- PyOpenGL (and PyOpenGL_accelerate recommended)
-- GLUT (freeglut) available on your system
+- PyOpenGL
+- PyOpenGL_accelerate
+- NumPy
+- playsound==1.2.2
+- FreeGLUT (for Windows systems)
 
-Install Python dependencies with pip:
+## Installation
+
+1. Ensure Python 3.8 or higher is installed on your system.
+2. Install the required dependencies:
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-On Windows you may need to install `freeglut` (for example via MSYS2 or by placing a freeglut DLL in your PATH) so that PyOpenGL can use GLUT.
+3. On Windows, install FreeGLUT if not already present (available via MSYS2 or as a DLL in your PATH).
 
----
+## Running the Game
 
-## How to run
-
-From the project root run:
+From the project root directory:
 
 ```powershell
 python main_game.py
 ```
 
-A GLUT window will open. The terminal prints score and cannon life when they change.
+A game window will open, displaying the 3D arena. The terminal will show initial instructions and game status updates.
 
-Controls (default):
+## Controls
 
-- A / D : Move cannon left / right
-- W / S : Tilt cannon barrel up / down
-- F     : Fire a shot
-- C     : Toggle aiming preview (if supported by `asset/cannon.py`)
-- Q or ESC : Quit
+- **A/D**: Move cannon left/right
+- **W/S**: Tilt cannon barrel up/down
+- **Spacebar**: Fire bullet
+- **Left Mouse Click**: Launch bomb
+- **L**: Activate laser (5-second duration, 30-second cooldown)
+- **C**: Activate cheat mode (auto-aim 3 shots, 20-second cooldown)
+- **V**: Toggle between third-person and first-person view
+- **Arrow Keys**: Adjust camera angle and zoom (third-person view)
+- **+/-**: Zoom in/out (third-person view)
+- **Q or ESC**: Quit game
 
----
+## Gameplay Tips
 
-## Gameplay (implemented behavior)
+- Position your cannon strategically to cover multiple enemy spawn points.
+- Use bombs for area damage against clustered enemies.
+- Save the laser for tough situations or boss encounters.
+- Monitor your health and use cheat mode sparingly for maximum effectiveness.
+- Experiment with camera angles to gain tactical advantages.
 
-- There are 4 levels in sequence:
-  - Level 1: two `lvl1_stickyman` enemies spawn sequentially. They walk and follow the cannon horizontally.
-  - Level 2: two `lvl2_bug` enemies spawn sequentially. They fly and follow horizontally.
-  - Level 3: two `lvl3_archer` enemies spawn sequentially. Archers walk slowly; they follow the 2s walk / 3s stop pattern and (if the module provides it) will shoot arrows while paused.
-  - Level 4: a single `lvl4_boss` spawns once. Boss moves faster and (if the module provides it) continuously shoots while approaching.
+## Project Structure
 
-Collision & scoring rules:
+- `main_game.py`: Main game logic and rendering loop
+- `assets/`: Directory containing 3D models and drawing functions
+  - `arena_model.py`: Arena and environmental rendering
+  - `cannon_model.py`: Cannon visualization
+  - `bullets.py`: Bullet rendering
+  - `bombs.py`: Bomb effects
+  - `lvl1_stickyman.py` to `lvl4_boss.py`: Enemy models
+- `assets/bgm/`: Background music and sound effects
+- `requirements.txt`: Python dependencies
+- `README.md`: This documentation
 
-- If a lvl1/2/3 enemy reaches the cannon: cannon loses 2 life.
-- If the lvl4 boss reaches the cannon: cannon loses 5 life.
-- Cannon starts with 20 life. When life <= 0 the game exits with Game Over.
-- Shooting: press `F` to fire a projectile; hits are detected by simple proximity checks. Killing an enemy increases score (printed to terminal).
-
-Enemy spawn timing:
-
-- For levels 1–3 the controller spawns the first enemy immediately, then spawns the second after a 3-second delay. Level 4 spawns the boss once.
-
----
-
-## Files and structure
-
-- `main_game.py` — new controller that implements the game loop and rules described above.
-- `README.md` — this file.
-- `asset/` — directory that contains drawing modules such as `cannon.py`, `arena.py`, `lvl1_stickyman.py`, `lvl2_bug.py`, `lvl3_archer.py`, `lvl4_boss.py` (visuals). The controller imports these modules and calls their draw functions where available.
-
----
-
-## Implementation notes & assumptions
-
-1. The `asset/` modules expose OpenGL drawing functions (they are not full gameplay entities). The controller wraps them in `Enemy` objects that manage position, timers and collisions.
-2. The controller expects the following function names (it will fall back to placeholders if they are absent):
-   - `asset/lvl1_stickyman.py` -> `draw_stickman(t)`
-   - `asset/lvl2_bug.py` -> `draw_bug(t)`
-   - `asset/lvl3_archer.py` -> `draw_archer(t)` and optionally `shoot_arrow()`
-   - `asset/lvl4_boss.py` -> `draw_boss(t)` and optionally `shoot()`
-3. Boss and archer shooting behavior is delegated to the respective asset module function if present; otherwise the controller simulates approach without visual projectiles.
-4. Collision detection uses a simple proximity (x/z) threshold. This is easier to tune and sufficient for the current prototype, but you may want to replace it with per-model bounding boxes later.
-
-If you want, I can inspect the `asset/` modules and adapt `main_game.py` to call the exact function names (so placeholders won't appear). I won't change code unless you request it.
-
----
-
-## Troubleshooting
-
-- If the program crashes immediately with an import error for OpenGL, ensure `PyOpenGL` is installed in the Python environment used to run the script.
-- If GLUT window creation fails on Windows, make sure `freeglut` or an equivalent GLUT runtime is installed and reachable.
+Enjoy defending the arena in Arena Strike!
 - If enemies appear as simple cubes, open the corresponding `asset/` file and check for the expected `draw_*` function names; I can update the controller to match exact names.
 
 ---
