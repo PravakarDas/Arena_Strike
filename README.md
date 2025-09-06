@@ -29,6 +29,8 @@ All Python dependencies are listed in `requirements.txt` and can be installed wi
 2. From the project root, install dependencies:
 
 ```powershell
+python -m venv env_name
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
